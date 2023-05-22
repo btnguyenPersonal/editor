@@ -8,7 +8,6 @@ use std::fs::File;
 use std::io::{self, stdout, BufRead, BufReader};
 use crossterm::terminal::size;
 
-
 fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
     let file_path = format!("{}", file_name);
     let file = File::open(file_path)?;
@@ -64,7 +63,7 @@ fn main() {
     let file_name = &args[1];
     enable_raw_mode().expect("Failed to enable raw mode");
     execute!(stdout(), EnterAlternateScreen).expect("Failed to enter alternate screen");
-    let file_data = match get_file_data(file_name) {
+    let mut file_data = match get_file_data(file_name) {
         Ok(data) => data,
         Err(err) => {
             println!("Failed to open the file: {}", err);
@@ -74,32 +73,54 @@ fn main() {
     };
     let mut cursor_x = 0;
     let mut cursor_y = 0;
+    let mut mode = 'n';
     render_file_data(&file_data, cursor_x, cursor_y);
     loop {
         if let Ok(event) = crossterm::event::read() {
             if let Event::Key(KeyEvent { code, modifiers }) = event {
                 if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
                     break;
-                } else if code == KeyCode::Char('h') {
-                    if cursor_x > file_data[cursor_y].len() {
-                        cursor_x = file_data[cursor_y].len() - 1;
-                    } else if cursor_x > 0 {
-                        cursor_x -= 1;
-                    }
-                    render_file_data(&file_data, cursor_x, cursor_y);
-                } else if code == KeyCode::Char('l') {
-                    if cursor_x < file_data[cursor_y].len() {
-                        cursor_x += 1;
-                    }
-                    render_file_data(&file_data, cursor_x, cursor_y);
-                } else if code == KeyCode::Char('j') {
-                    if cursor_y < file_data.len() - 1 {
-                        cursor_y += 1;
-                    }
-                    render_file_data(&file_data, cursor_x, cursor_y);
-                } else if code == KeyCode::Char('k') {
-                    if cursor_y > 0 {
-                        cursor_y -= 1;
+                } else {
+                    if mode == 'n' {
+                        if code == KeyCode::Char('h') {
+                            if cursor_x > file_data[cursor_y].len() {
+                                cursor_x = file_data[cursor_y].len() - 1;
+                            } else if cursor_x > 0 {
+                                cursor_x -= 1;
+                            }
+                        } else if code == KeyCode::Char('l') {
+                            if cursor_x < file_data[cursor_y].len() {
+                                cursor_x += 1;
+                            }
+                        } else if code == KeyCode::Char('j') {
+                            if cursor_y < file_data.len() - 1 {
+                                cursor_y += 1;
+                            }
+                        } else if code == KeyCode::Char('k') {
+                            if cursor_y > 0 {
+                                cursor_y -= 1;
+                            }
+                        } else if code == KeyCode::Char('a') {
+                            mode = 'i';
+                            if cursor_x < file_data[cursor_y].len() {
+                                cursor_x += 1;
+                            }
+                        } else if code == KeyCode::Char('i') {
+                            mode = 'i';
+                        }
+                    } else if mode == 'i' {
+                        if code == KeyCode::Esc {
+                            mode = 'n';
+                            if cursor_x > 0 {
+                                cursor_x -= 1;
+                            }
+                        } else {
+                            let KeyCode::Char(key) = code else { break };
+                            if key.len_utf8() == 1 {
+                                file_data[cursor_y].insert(cursor_x, key);
+                                cursor_x += 1;
+                            }
+                        }
                     }
                     render_file_data(&file_data, cursor_x, cursor_y);
                 }
