@@ -86,6 +86,10 @@ fn up(cursor_y: usize) -> usize {
     }
 }
 
+fn set_cursor_end(file_data: &[String], cursor_y: usize) -> usize {
+    file_data[cursor_y].len()
+}
+
 fn reset_cursor_end(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
     if cursor_x > file_data[cursor_y].len() {
         file_data[cursor_y].len()
@@ -137,12 +141,25 @@ fn main() {
                             cursor_y = down(&file_data, cursor_y);
                         } else if code == KeyCode::Char('k') {
                             cursor_y = up(cursor_y);
+                        } else if code == KeyCode::Char('$') {
+                            cursor_x = set_cursor_end(&file_data, cursor_y);
+                            cursor_x = left(cursor_x);
+                        } else if code == KeyCode::Char('^') {
+                            cursor_x = count_leading_spaces(&file_data[cursor_y]);
+                        } else if code == KeyCode::Char('0') {
+                            cursor_x = 0;
                         } else if code == KeyCode::Char('a') {
                             cursor_x = reset_cursor_end(&file_data, cursor_x, cursor_y);
                             cursor_x = right(&file_data, cursor_x, cursor_y);
                             mode = 'i';
+                        } else if code == KeyCode::Char('A') {
+                            cursor_x = set_cursor_end(&file_data, cursor_y);
+                            mode = 'i';
                         } else if code == KeyCode::Char('i') {
                             cursor_x = reset_cursor_end(&file_data, cursor_x, cursor_y);
+                            mode = 'i';
+                        } else if code == KeyCode::Char('I') {
+                            cursor_x = count_leading_spaces(&file_data[cursor_y]);
                             mode = 'i';
                         }
                     } else if mode == 'i' {
@@ -173,10 +190,8 @@ fn main() {
                         } else if code == KeyCode::Delete {
                             file_data[cursor_y].remove(cursor_x);
                         } else if let KeyCode::Char(c) = code {
-                            if c.len_utf8() == 1 {
-                                file_data[cursor_y].insert(cursor_x, c);
-                                cursor_x += 1;
-                            }
+                            file_data[cursor_y].insert(cursor_x, c);
+                            cursor_x += 1;
                         }
                     }
                     render_file_data(&file_data, cursor_x, cursor_y);
