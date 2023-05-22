@@ -1,6 +1,8 @@
 use crossterm::event::{Event, KeyCode, KeyEvent};
+use crossterm::cursor::{MoveLeft, MoveRight, MoveUp, MoveDown};
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::terminal::{Clear, ClearType};
 use crossterm::cursor::MoveToColumn;
 use crossterm::style::{Print};
 use std::fs::File;
@@ -14,12 +16,16 @@ fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
     Ok(lines)
 }
 
-fn render_file_data(file_data: &[String]) {
+fn render_file_data(file_data: &[String], cursor_x: usize, cursor_y: usize) {
     let mut stdout = stdout();
+
+    execute!(stdout, Clear(ClearType::All)).expect("Failed to clear screen");
 
     for line in file_data {
         execute!(stdout, MoveToColumn(0), Print(line), Print("\n")).expect("Failed to execute command");
     }
+    execute!(stdout, MoveUp(file_data.len() as u16 - cursor_y as u16)).expect("Failed to move cursor");
+    execute!(stdout, MoveToColumn(cursor_x as u16)).expect("Failed to move cursor");
 }
 
 fn quit_terminal() {
@@ -54,17 +60,40 @@ fn main() {
             return;
         }
     };
-    print!("{:#?}", file_data);
-    render_file_data(&file_data);
+    let mut cursor_x = 0;
+    let mut cursor_y = 0;
+    render_file_data(&file_data, cursor_x, cursor_y);
 
     // Wait for Ctrl+C to exit
     loop {
-        print!("hi");
         if let Ok(event) = crossterm::event::read() {
             if let Event::Key(KeyEvent { code, .. }) = event {
-                if code == KeyCode::Char('c') {
-                    break;
+                match code {
+                    KeyCode::Char('c') => break,
+                    KeyCode::Char('h') => {
+                        if cursor_x > 0 {
+                            cursor_x -= 1;
+                        }
+                    }
+                    KeyCode::Char('l') => {
+                        if cursor_x < file_data[cursor_y].len() {
+                            cursor_x += 1;
+                        }
+                    }
+                    KeyCode::Char('k') => {
+                        if cursor_y > 0 {
+                            cursor_y -= 1;
+                        }
+                    }
+                    KeyCode::Char('j') => {
+                        if cursor_y < file_data.len() - 1 {
+                            cursor_y += 1;
+                        }
+                    }
+                    _ => {}
                 }
+
+                render_file_data(&file_data, cursor_x, cursor_y);
             }
         }
     }
