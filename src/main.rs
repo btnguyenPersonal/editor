@@ -54,6 +54,52 @@ fn quit_terminal() {
     disable_raw_mode().expect("Failed to disable raw mode");
 }
 
+fn right(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
+    if cursor_x < file_data[cursor_y].len() {
+        cursor_x + 1
+    } else {
+        cursor_x
+    }
+}
+
+fn left(cursor_x: usize) -> usize {
+    if cursor_x > 0 {
+        cursor_x - 1
+    } else {
+        cursor_x
+    }
+}
+
+fn down(file_data: &[String], cursor_y: usize) -> usize {
+    if cursor_y < file_data.len() - 1 {
+        cursor_y + 1
+    } else {
+        cursor_y
+    }
+}
+
+fn up(cursor_y: usize) -> usize {
+    if cursor_y > 0 {
+        cursor_y - 1
+    } else {
+        cursor_y
+    }
+}
+
+fn reset_cursor_end(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
+    if cursor_x > file_data[cursor_y].len() {
+        file_data[cursor_y].len()
+    } else {
+        cursor_x
+    }
+}
+
+fn count_leading_spaces(input: &str) -> usize {
+    let trimmed = input.trim_start();
+    let leading_spaces = input.len() - trimmed.len();
+    leading_spaces
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
@@ -83,41 +129,52 @@ fn main() {
                 } else {
                     if mode == 'n' {
                         if code == KeyCode::Char('h') {
-                            if cursor_x > file_data[cursor_y].len() {
-                                cursor_x = file_data[cursor_y].len() - 1;
-                            } else if cursor_x > 0 {
-                                cursor_x -= 1;
-                            }
+                            cursor_x = reset_cursor_end(&file_data, cursor_x, cursor_y);
+                            cursor_x = left(cursor_x);
                         } else if code == KeyCode::Char('l') {
-                            if cursor_x < file_data[cursor_y].len() {
-                                cursor_x += 1;
-                            }
+                            cursor_x = right(&file_data, cursor_x, cursor_y);
                         } else if code == KeyCode::Char('j') {
-                            if cursor_y < file_data.len() - 1 {
-                                cursor_y += 1;
-                            }
+                            cursor_y = down(&file_data, cursor_y);
                         } else if code == KeyCode::Char('k') {
-                            if cursor_y > 0 {
-                                cursor_y -= 1;
-                            }
+                            cursor_y = up(cursor_y);
                         } else if code == KeyCode::Char('a') {
+                            cursor_x = reset_cursor_end(&file_data, cursor_x, cursor_y);
+                            cursor_x = right(&file_data, cursor_x, cursor_y);
                             mode = 'i';
-                            if cursor_x < file_data[cursor_y].len() {
-                                cursor_x += 1;
-                            }
                         } else if code == KeyCode::Char('i') {
+                            cursor_x = reset_cursor_end(&file_data, cursor_x, cursor_y);
                             mode = 'i';
                         }
                     } else if mode == 'i' {
                         if code == KeyCode::Esc {
                             mode = 'n';
-                            if cursor_x > 0 {
-                                cursor_x -= 1;
+                            cursor_x = left(cursor_x);
+                        } else if code == KeyCode::Enter {
+                            let mut indent_level = count_leading_spaces(&file_data[cursor_y]);
+                            if file_data[cursor_y][..cursor_x].ends_with('(') || file_data[cursor_y][..cursor_x].ends_with('{') {
+                                indent_level += 4;
                             }
-                        } else {
-                            let KeyCode::Char(key) = code else { break };
-                            if key.len_utf8() == 1 {
-                                file_data[cursor_y].insert(cursor_x, key);
+                            let substring = " ".repeat(indent_level) + &file_data[cursor_y][cursor_x..];
+                            if file_data[cursor_y][..cursor_x].ends_with('(') {
+                                file_data.insert(cursor_y + 1, " ".repeat(indent_level - 4) + ")");
+                            }
+                            if file_data[cursor_y][..cursor_x].ends_with('{') {
+                                file_data.insert(cursor_y + 1, " ".repeat(indent_level - 4) + "}");
+                            }
+                            file_data.insert(cursor_y + 1, substring.to_string());
+                            file_data[cursor_y] = file_data[cursor_y][..cursor_x].to_string();
+                            cursor_y += 1;
+                            cursor_x = indent_level;
+                        } else if code == KeyCode::Backspace {
+                            if cursor_x > 0 {
+                                file_data[cursor_y].remove(cursor_x - 1);
+                                cursor_x = left(cursor_x);
+                            }
+                        } else if code == KeyCode::Delete {
+                            file_data[cursor_y].remove(cursor_x);
+                        } else if let KeyCode::Char(c) = code {
+                            if c.len_utf8() == 1 {
+                                file_data[cursor_y].insert(cursor_x, c);
                                 cursor_x += 1;
                             }
                         }
