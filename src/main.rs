@@ -152,6 +152,7 @@ fn main() {
     let mut cursor_x = 0;
     let mut cursor_y = 0;
     let mut mode = 'n';
+    let mut prev_keys = "";
     render_file_data(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
     loop {
         if let Ok(event) = crossterm::event::read() {
@@ -189,6 +190,30 @@ fn main() {
                         } else if code == KeyCode::Char('I') {
                             cursor_x = count_leading_spaces(&file_data[cursor_y]);
                             mode = 'i';
+                        } else if prev_keys == "g" && code == KeyCode::Char('g') {
+                            cursor_y = 0;
+                        } else if code == KeyCode::Char('d') && modifiers.contains(KeyModifiers::CONTROL) {
+                            let terminal_size = size().unwrap();
+                            let term_height = terminal_size.1 as usize;
+                            let mut i = 0;
+                            while i < term_height {
+                                cursor_y = down(&file_data, cursor_y);
+                                i += 2;
+                            }
+                        } else if code == KeyCode::Char('u') && modifiers.contains(KeyModifiers::CONTROL) {
+                            let terminal_size = size().unwrap();
+                            let term_height = terminal_size.1 as usize;
+                            let mut i = 0;
+                            while i < term_height {
+                                cursor_y = up(cursor_y);
+                                i += 2;
+                            }
+                        } else if code == KeyCode::Char('g') {
+                            prev_keys = "g";
+                        } else if code == KeyCode::Char('G') {
+                            cursor_y = file_data.len() - 1;
+                        } else if code == KeyCode::Esc {
+                            prev_keys = "";
                         }
                     } else if mode == 'i' {
                         if code == KeyCode::Esc {
