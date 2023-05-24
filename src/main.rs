@@ -5,7 +5,7 @@ use crossterm::terminal::{Clear, ClearType};
 use crossterm::cursor::{MoveToColumn, MoveToRow};
 use crossterm::style::{Color, Print, SetForegroundColor};
 use std::fs::File;
-use std::io::{self, stdout, BufRead, BufReader};
+use std::io::{self, stdout, BufRead, BufReader, Write};
 use crossterm::terminal::size;
 
 fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
@@ -18,13 +18,11 @@ fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
 
 fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: usize, cursor_x: usize, cursor_y: usize) {
     let mut stdout = stdout();
-
     execute!(stdout, Clear(ClearType::All)).expect("Failed to clear screen");
     let terminal_size = size().unwrap();
     let term_height = terminal_size.1 as usize;
     let term_width = terminal_size.0 as usize;
     let mut y = 0;
-
     while y < term_height && y < file_data.len() {
         execute!(stdout, MoveToRow(((y + 1) as u16).try_into().unwrap())).expect("Failed to move cursor");
         let mut line: String = if file_data[window_line_y + y].len() >= window_line_x { file_data[window_line_y + y][window_line_x..].to_string() } else { "".to_string() };
@@ -49,13 +47,23 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
         cursor_x as u16 - window_line_x as u16
     };
     execute!(stdout, MoveToColumn(cursor_x_display as u16 + 6)).expect("Failed to move cursor");
-
 }
 
 fn quit_terminal() {
     let mut stdout = stdout();
     execute!(stdout, LeaveAlternateScreen).expect("Failed to leave alternate screen");
     disable_raw_mode().expect("Failed to disable raw mode");
+}
+
+fn save_to_file(data: &[String], file_path: &str) {
+    if let Ok(mut file) = File::create(file_path) {
+        for line in data {
+            let _ = file.write_all(line.as_bytes());
+            let _ = file.write_all(b"\n");
+        }
+    } else {
+        println!("Failed to save the file");
+    }
 }
 
 fn right(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
@@ -142,8 +150,8 @@ fn main() {
     let mut file_data = match get_file_data(file_name) {
         Ok(data) => data,
         Err(err) => {
-            println!("Failed to open the file: {}", err);
             quit_terminal();
+            println!("Failed to open the file: {}", err);
             return;
         }
     };
@@ -192,6 +200,8 @@ fn main() {
                             mode = 'i';
                         } else if prev_keys == "g" && code == KeyCode::Char('g') {
                             cursor_y = 0;
+                        } else if code == KeyCode::Char('s') && modifiers.contains(KeyModifiers::CONTROL) {
+                            save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('d') && modifiers.contains(KeyModifiers::CONTROL) {
                             let terminal_size = size().unwrap();
                             let term_height = terminal_size.1 as usize;
@@ -214,11 +224,13 @@ fn main() {
                             cursor_y = file_data.len() - 1;
                         } else if code == KeyCode::Esc {
                             prev_keys = "";
+                            save_to_file(&file_data, file_name);
                         }
                     } else if mode == 'i' {
                         if code == KeyCode::Esc {
                             mode = 'n';
                             cursor_x = left(cursor_x);
+                            save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Enter {
                             let mut indent_level = count_leading_spaces(&file_data[cursor_y]);
                             if file_data[cursor_y][..cursor_x].ends_with('(') || file_data[cursor_y][..cursor_x].ends_with('{') {
