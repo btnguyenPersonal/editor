@@ -7,6 +7,13 @@ use crossterm::style::{Color, Print, SetForegroundColor};
 use std::fs::File;
 use std::io::{self, stdout, BufRead, BufReader, Write};
 use crossterm::terminal::size;
+use clipboard::ClipboardContext;
+use clipboard::ClipboardProvider;
+
+fn copy_to_clipboard(text: &str) {
+    let mut clipboard: ClipboardContext = ClipboardProvider::new().expect("Failed to create clipboard context");
+    let _ = clipboard.set_contents(text.to_owned());
+}
 
 fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
     let file_path = format!("{}", file_name);
@@ -169,7 +176,16 @@ fn main() {
                     break;
                 } else {
                     if mode == 'n' {
-                        if code == KeyCode::Char('h') {
+                        if prev_keys == "r" {
+                            if cursor_x < file_data[cursor_y].len() {
+                                if let KeyCode::Char(c) = code {
+                                    file_data[cursor_y].remove(cursor_x);
+                                    file_data[cursor_y].insert(cursor_x, c);
+                                    save_to_file(&file_data, file_name);
+                                }
+                            }
+                            prev_keys = "";
+                        } else if code == KeyCode::Char('h') {
                             cursor_x = reset_cursor_end(&file_data, cursor_x, cursor_y);
                             cursor_x = left(cursor_x);
                         } else if code == KeyCode::Char('l') {
@@ -219,9 +235,16 @@ fn main() {
                             mode = 'i';
                         } else if prev_keys == "g" && code == KeyCode::Char('g') {
                             cursor_y = 0;
-                        } else if code == KeyCode::Char('x') {
+                            prev_keys = "";
+                        } else if code == KeyCode::Char('s') {
                             file_data[cursor_y].remove(cursor_x);
-                            save_to_file(&file_data, file_name);
+                            mode = 'i';
+                        } else if code == KeyCode::Char('x') {
+                            if cursor_x < file_data[cursor_y].len() {
+                                copy_to_clipboard(&file_data[cursor_y][cursor_x..cursor_x + 1]);
+                                file_data[cursor_y].remove(cursor_x);
+                                save_to_file(&file_data, file_name);
+                            }
                         } else if code == KeyCode::Char('d') && modifiers.contains(KeyModifiers::CONTROL) {
                             let terminal_size = size().unwrap();
                             let term_height = terminal_size.1 as usize;
@@ -238,8 +261,10 @@ fn main() {
                                 cursor_y = up(cursor_y);
                                 i += 2;
                             }
-                        } else if code == KeyCode::Char('g') {
+                        } else if prev_keys == "" && code == KeyCode::Char('g') {
                             prev_keys = "g";
+                        } else if prev_keys == "" && code == KeyCode::Char('r') {
+                            prev_keys = "r";
                         } else if code == KeyCode::Char('G') {
                             cursor_y = file_data.len() - 1;
                         } else if code == KeyCode::Esc {
