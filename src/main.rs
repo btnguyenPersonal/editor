@@ -3,7 +3,7 @@ use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::cursor::{MoveToColumn, MoveToRow};
-use crossterm::style::{Color, Print, SetForegroundColor};
+use crossterm::style::{Color, Print, ResetColor, SetForegroundColor, SetAttribute, Attribute};
 use std::fs::File;
 use std::io::{self, stdout, BufRead, BufReader, Write};
 use crossterm::terminal::size;
@@ -23,7 +23,7 @@ fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
     Ok(lines)
 }
 
-fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: usize, cursor_x: usize, cursor_y: usize) {
+fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: usize, cursor_x: usize, cursor_y: usize, visual_x: usize, visual_y: usize, mode: char) {
     let mut stdout = stdout();
     execute!(stdout, Clear(ClearType::All)).expect("Failed to clear screen");
     let terminal_size = size().unwrap();
@@ -40,11 +40,32 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
         execute!(
             stdout,
             MoveToColumn(0),
+            ResetColor,
             SetForegroundColor(Color::DarkGrey),
             Print(format!("{:4} ", window_line_y + y + 1)),
-            SetForegroundColor(Color::White),
-            Print(line)
-        ).expect("Failed to execute command");
+        ).expect("Failed to print line number");
+        if is_line_highlighted(window_line_y + y, visual_y, cursor_y, mode) {
+            execute!(
+                stdout,
+                SetAttribute(Attribute::Reverse)
+            );
+        }
+        let mut x = 0;
+        while x < line.len() {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::White),
+                Print(&line[x..x+1])
+            );
+            x += 1;
+        }
+        if mode == 'V' && line.len() == 0 {
+            execute!(
+                stdout,
+                SetForegroundColor(Color::White),
+                Print(" ")
+            );
+        }
         y += 1;
     }
     execute!(stdout, MoveToRow(cursor_y as u16 - window_line_y as u16)).expect("Failed to move cursor");
@@ -139,6 +160,65 @@ fn calc_window_lines(file_data: &[String], window_line_x: usize, window_line_y: 
     (x, y)
 }
 
+fn is_line_highlighted(y: usize, visual_y: usize, cursor_y: usize, mode: char) -> bool {
+    mode == 'V' && (y <= visual_y && y >= cursor_y || y >= visual_y && y <= cursor_y)
+}
+
+fn get_cursor_after_visual(cursor: usize, visual: usize) -> usize {
+    if cursor <= visual {
+        cursor
+    } else {
+        visual
+    }
+}
+
+fn get_clipboard_content() {
+    let mut clipboard: ClipboardContext = ClipboardProvider::new().ok().expect("clipboard retrieval error");
+    let paste = clipboard.get_contents().ok().expect("clipboard retreival error");
+}
+
+fn paste_before(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize, mode: char) {
+    let mut clipboard: String = "\n".to_string();
+    let (begin, end) = if cursor_y <= visual_y {
+        (cursor_y, visual_y)
+    } else {
+        (visual_y, cursor_y)
+    };
+    for i in begin..=end {
+        clipboard += &file_data[i];
+        clipboard += "\n";
+    }
+    copy_to_clipboard(&clipboard);
+}
+
+fn copy_in_visual(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize, mode: char) {
+    let mut clipboard: String = "\n".to_string();
+    let (begin, end) = if cursor_y <= visual_y {
+        (cursor_y, visual_y)
+    } else {
+        (visual_y, cursor_y)
+    };
+    for i in begin..=end {
+        clipboard += &file_data[i];
+        clipboard += "\n";
+    }
+    copy_to_clipboard(&clipboard);
+}
+
+fn delete_in_visual(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize, mode: char) {
+    let (begin, end) = if cursor_y <= visual_y {
+        (cursor_y, visual_y)
+    } else {
+        (visual_y, cursor_y)
+    };
+    for _ in begin..=end {
+        file_data.remove(begin);
+    }
+    if file_data.len() == 0 {
+        file_data.insert(0, "".to_string());
+    }
+}
+
 fn count_leading_spaces(input: &str) -> usize {
     let trimmed = input.trim_start();
     let leading_spaces = input.len() - trimmed.len();
@@ -166,9 +246,11 @@ fn main() {
     let mut window_line_y = 0;
     let mut cursor_x = 0;
     let mut cursor_y = 0;
+    let mut visual_x = 0;
+    let mut visual_y = 0;
     let mut mode = 'n';
     let mut prev_keys = "";
-    render_file_data(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
+    render_file_data(&file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
     loop {
         if let Ok(event) = crossterm::event::read() {
             if let Event::Key(KeyEvent { code, modifiers, .. }) = event {
@@ -233,6 +315,10 @@ fn main() {
                             cursor_x = indent_level;
                             file_data.insert(cursor_y, " ".repeat(indent_level).to_string());
                             mode = 'i';
+                        } else if code == KeyCode::Char('V') {
+                            mode = 'V';
+                            visual_x = cursor_x;
+                            visual_y = cursor_y;
                         } else if prev_keys == "g" && code == KeyCode::Char('g') {
                             cursor_y = 0;
                             prev_keys = "";
@@ -303,9 +389,37 @@ fn main() {
                             file_data[cursor_y].insert(cursor_x, c);
                             cursor_x += 1;
                         }
+                    } else if mode == 'V' {
+                        if code == KeyCode::Esc {
+                            mode = 'n';
+                        } else if code == KeyCode::Char('j') {
+                            cursor_y = down(&file_data, cursor_y);
+                        } else if code == KeyCode::Char('k') {
+                            cursor_y = up(cursor_y);
+                        } else if code == KeyCode::Char('y') {
+                            copy_in_visual(&mut file_data, cursor_y, visual_y, mode);
+                            cursor_y = get_cursor_after_visual(cursor_y, visual_y);
+                            mode = 'n';
+                            save_to_file(&file_data, file_name);
+                        } else if code == KeyCode::Char('d') {
+                            copy_in_visual(&mut file_data, cursor_y, visual_y, mode);
+                            delete_in_visual(&mut file_data, cursor_y, visual_y, mode);
+                            cursor_y = get_cursor_after_visual(cursor_y, visual_y);
+                            cursor_y = up(cursor_y);
+                            cursor_y = down(&file_data, cursor_y);
+                            mode = 'n';
+                            save_to_file(&file_data, file_name);
+                        } else if code == KeyCode::Char('x') {
+                            delete_in_visual(&mut file_data, cursor_y, visual_y, mode);
+                            cursor_y = get_cursor_after_visual(cursor_y, visual_y);
+                            cursor_y = up(cursor_y);
+                            cursor_y = down(&file_data, cursor_y);
+                            mode = 'n';
+                            save_to_file(&file_data, file_name);
+                        }
                     }
                     (window_line_x, window_line_y) = calc_window_lines(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
-                    render_file_data(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
+                    render_file_data(&file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
                 }
             }
         }
