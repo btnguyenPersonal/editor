@@ -1,11 +1,11 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
-use crossterm::cursor::{Hide, Show, MoveToColumn, MoveToRow};
-use crossterm::style::{Color, Print, ResetColor, SetForegroundColor, SetAttribute, Attribute};
+use crossterm::cursor::{Hide, Show, MoveTo, MoveToColumn, MoveToRow};
+use crossterm::style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor, SetAttribute, Attribute};
 use std::fs::File;
 use std::io::{self, stdout, BufRead, BufReader, Write};
-use crossterm::terminal::size;
+use crossterm::terminal::{size, Clear, ClearType};
 use clipboard::ClipboardContext;
 use clipboard::ClipboardProvider;
 
@@ -22,12 +22,54 @@ fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
     Ok(lines)
 }
 
-fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: usize, cursor_x: usize, cursor_y: usize, visual_x: usize, visual_y: usize, mode: char) {
+fn update_terminal(previous_render: &[String], current_render: &[String]) {
     let mut stdout = stdout();
     execute!(stdout, Hide).expect("Failed to hide cursor");
+    let (width, height) = size().expect("Failed to find terminal size");
+    let height = height as usize;
+    for y in 0..height {
+        if let Some(previous_line) = previous_render.get(y) {
+            if let Some(current_line) = current_render.get(y) {
+                let previous_chars = previous_line.chars();
+                let current_chars = current_line.chars();
+
+                for (x, (previous_char, current_char)) in
+                    previous_chars.zip(current_chars).enumerate()
+                {
+                    if previous_char != current_char {
+                        let fg_color = Color::White;
+                        let bg_color = Color::Reset;
+                        execute!(
+                            stdout,
+                            MoveTo(x as u16, y as u16),
+                            SetForegroundColor(fg_color),
+                            SetBackgroundColor(bg_color),
+                            Print(current_char),
+                        ).expect("Failed to update char");
+                    }
+                }
+            }
+        }
+    }
+    execute!(stdout, Show).expect("Failed to show cursor");
+}
+
+fn render_file_data(
+    mut prev_view: Vec<String>,
+    file_data: &[String],
+    window_line_x: usize,
+    window_line_y: usize,
+    cursor_x: usize,
+    cursor_y: usize,
+    visual_x: usize,
+    visual_y: usize,
+    mode: char
+) -> Vec<String> {
+    let mut stdout = stdout();
     let terminal_size = size().unwrap();
     let term_height = terminal_size.1 as usize;
     let term_width = terminal_size.0 as usize;
+    let mut screen_view: Vec<String> = Vec::new();
     let mut y = 0;
     while y < term_height && window_line_y + y < file_data.len() {
         execute!(stdout, MoveToRow((y as u16).try_into().unwrap())).expect("Failed to move cursor");
@@ -40,13 +82,7 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
             let substring = &line[..term_width];
             line = String::from(substring);
         }
-        execute!(
-            stdout,
-            MoveToColumn(0),
-            ResetColor,
-            SetForegroundColor(Color::DarkGrey),
-            Print(format!("{:4} ", window_line_y + y + 1)),
-        ).expect("Failed to print line number");
+        screen_view.push(format!("{:4} ", window_line_y + y + 1));
         if is_line_highlighted(window_line_y + y, visual_y, cursor_y, mode) {
             execute!(
                 stdout,
@@ -55,23 +91,22 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
         }
         let mut x = 0;
         while x < line.len() {
-            execute!(
-                stdout,
-                SetForegroundColor(Color::White),
-                Print(&line[x..x+1])
-            ).expect(format!("Failed to print {}", &line[x..x+1]).as_str());
+            screen_view[y] += &line[x..x+1];
             x += 1;
         }
         while x < term_width - 5 {
-            execute!(
-                stdout,
-                SetForegroundColor(Color::White),
-                Print(" ")
-            ).expect("Failed to print empty space");
+            screen_view[y] += " ";
             x += 1;
         }
         y += 1;
     }
+    if prev_view.len() == 0 {
+        let (width, height) = size().expect("Failed to find terminal size");
+        for i in 0..height {
+            prev_view.push(" ".repeat(width.into()).to_string());
+        }
+    }
+    update_terminal(&prev_view, &screen_view);
     execute!(stdout, MoveToRow(cursor_y as u16 - window_line_y as u16)).expect("Failed to move cursor");
     let cursor_x_display: u16 = if cursor_x > file_data[cursor_y].len() {
         file_data[cursor_y].len().try_into().unwrap()
@@ -79,7 +114,7 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
         cursor_x as u16 - window_line_x as u16
     };
     execute!(stdout, MoveToColumn(cursor_x_display as u16 + 5)).expect("Failed to move cursor");
-    execute!(stdout, Show).expect("Failed to show cursor");
+    screen_view
 }
 
 fn quit_terminal() {
@@ -190,6 +225,16 @@ fn paste_before(file_data: &mut Vec<String>, cursor_x: usize, cursor_y: usize) {
         for line in lines {
             let _ = &file_data.insert(cursor_y, line.to_string());
         }
+    } else {
+        if cursor_x <= file_data[cursor_y].len() {
+            let lines: Vec<&str> = clip.split('\n').collect();
+            for line in lines {
+                let end = file_data[cursor_y][cursor_x..].to_string();
+                file_data[cursor_y] = file_data[cursor_y][..cursor_x].to_string();
+                file_data[cursor_y] += line;
+                file_data[cursor_y] += &end;
+            }
+        }
     }
 }
 
@@ -294,7 +339,8 @@ fn main() {
     let mut visual_y = 0;
     let mut mode = 'n';
     let mut prev_keys = "";
-    render_file_data(&file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
+    let mut prev_view: Vec<String> = Vec::new();
+    prev_view = render_file_data(Vec::new(), &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
     loop {
         if let Ok(event) = crossterm::event::read() {
             if let Event::Key(KeyEvent { code, modifiers, .. }) = event {
@@ -495,7 +541,7 @@ fn main() {
                         }
                     }
                     (window_line_x, window_line_y) = calc_window_lines(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
-                    render_file_data(&file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
+                    prev_view = render_file_data(prev_view.clone(), &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
                 }
             }
         }
