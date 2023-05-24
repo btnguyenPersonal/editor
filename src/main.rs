@@ -183,24 +183,30 @@ fn get_clipboard_content() -> String {
     clipboard.get_contents().ok().expect("clipboard retreival error")
 }
 
-fn paste_before(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize, mode: char) {
-    let clip = get_clipboard_content();
-    let lines: Vec<&str> = clip.split('\n').collect();
-    for line in lines {
-        let _ = &file_data.insert(cursor_y, line.to_string());
+fn paste_before(file_data: &mut Vec<String>, cursor_x: usize, cursor_y: usize) {
+    let mut clip = get_clipboard_content();
+    if clip.starts_with("\n") {
+        clip.remove(0);
+        let lines: Vec<&str> = clip.split('\n').collect();
+        for line in lines {
+            let _ = &file_data.insert(cursor_y, line.to_string());
+        }
     }
 }
 
-fn paste_after(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize, mode: char) {
-    let clip = get_clipboard_content();
-    let lines: Vec<&str> = clip.split('\n').collect();
-    for line in lines {
-        let _ = &file_data.insert(cursor_y + 1, line.to_string());
+fn paste_after(file_data: &mut Vec<String>, cursor_x: usize, cursor_y: usize) {
+    let mut clip = get_clipboard_content();
+    if clip.starts_with("\n") {
+        clip.remove(0);
+        let lines: Vec<&str> = clip.split('\n').collect();
+        for line in lines {
+            let _ = &file_data.insert(cursor_y + 1, line.to_string());
+        }
     }
 }
 
 fn copy_in_visual(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize, mode: char) {
-    let mut clipboard: String = "".to_string();
+    let mut clipboard: String = if mode == 'V' {"\n".to_string()} else {"".to_string()};
     let (begin, end) = if cursor_y <= visual_y {
         (cursor_y, visual_y)
     } else {
@@ -352,10 +358,10 @@ fn main() {
                             cursor_y = 0;
                             prev_keys = "";
                         } else if code == KeyCode::Char('P') {
-                            paste_before(&mut file_data, cursor_y, visual_y, mode);
+                            paste_before(&mut file_data, cursor_x, cursor_y);
                             save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('p') {
-                            paste_after(&mut file_data, cursor_y, visual_y, mode);
+                            paste_after(&mut file_data, cursor_x, cursor_y);
                             save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('s') {
                             file_data[cursor_y].remove(cursor_x);
@@ -382,10 +388,31 @@ fn main() {
                                 cursor_y = up(cursor_y);
                                 i += 2;
                             }
+                        } else if prev_keys == "c" && code == KeyCode::Char('c') {
+                            copy_in_visual(&mut file_data, cursor_y, cursor_y, 'V');
+                            delete_in_visual_and_insert(&mut file_data, cursor_y, cursor_y, 'V');
+                            cursor_y = reset_cursor_end_file(file_data.len(), cursor_y);
+                            mode = 'i';
+                            prev_keys = "";
+                        } else if prev_keys == "y" && code == KeyCode::Char('y') {
+                            copy_in_visual(&mut file_data, cursor_y, cursor_y, 'V');
+                            prev_keys = "";
+                        } else if prev_keys == "d" && code == KeyCode::Char('d') {
+                            copy_in_visual(&mut file_data, cursor_y, cursor_y, 'V');
+                            delete_in_visual(&mut file_data, cursor_y, cursor_y, 'V');
+                            cursor_y = reset_cursor_end_file(file_data.len(), cursor_y);
+                            prev_keys = "";
+                            save_to_file(&file_data, file_name);
                         } else if prev_keys == "" && code == KeyCode::Char('g') {
                             prev_keys = "g";
                         } else if prev_keys == "" && code == KeyCode::Char('r') {
                             prev_keys = "r";
+                        } else if prev_keys == "" && code == KeyCode::Char('c') {
+                            prev_keys = "c";
+                        } else if prev_keys == "" && code == KeyCode::Char('d') {
+                            prev_keys = "d";
+                        } else if prev_keys == "" && code == KeyCode::Char('y') {
+                            prev_keys = "y";
                         } else if code == KeyCode::Char('G') {
                             cursor_y = file_data.len() - 1;
                         } else if code == KeyCode::Esc {
