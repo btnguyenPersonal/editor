@@ -1,7 +1,6 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
-use crossterm::terminal::{Clear, ClearType};
 use crossterm::cursor::{Hide, Show, MoveToColumn, MoveToRow};
 use crossterm::style::{Color, Print, ResetColor, SetForegroundColor, SetAttribute, Attribute};
 use std::fs::File;
@@ -25,7 +24,7 @@ fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
 
 fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: usize, cursor_x: usize, cursor_y: usize, visual_x: usize, visual_y: usize, mode: char) {
     let mut stdout = stdout();
-    execute!(stdout, Hide);
+    execute!(stdout, Hide).expect("Failed to hide cursor");
     let terminal_size = size().unwrap();
     let term_height = terminal_size.1 as usize;
     let term_width = terminal_size.0 as usize;
@@ -52,7 +51,7 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
             execute!(
                 stdout,
                 SetAttribute(Attribute::Reverse)
-            );
+            ).expect("Failed to set Reverse color");
         }
         let mut x = 0;
         while x < line.len() {
@@ -60,7 +59,7 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
                 stdout,
                 SetForegroundColor(Color::White),
                 Print(&line[x..x+1])
-            );
+            ).expect(format!("Failed to print {}", &line[x..x+1]).as_str());
             x += 1;
         }
         while x < term_width - 5 {
@@ -68,7 +67,7 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
                 stdout,
                 SetForegroundColor(Color::White),
                 Print(" ")
-            );
+            ).expect("Failed to print empty space");
             x += 1;
         }
         y += 1;
@@ -80,7 +79,7 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
         cursor_x as u16 - window_line_x as u16
     };
     execute!(stdout, MoveToColumn(cursor_x_display as u16 + 5)).expect("Failed to move cursor");
-    execute!(stdout, Show);
+    execute!(stdout, Show).expect("Failed to show cursor");
 }
 
 fn quit_terminal() {
@@ -201,6 +200,16 @@ fn paste_after(file_data: &mut Vec<String>, cursor_x: usize, cursor_y: usize) {
         let lines: Vec<&str> = clip.split('\n').collect();
         for line in lines {
             let _ = &file_data.insert(cursor_y + 1, line.to_string());
+        }
+    } else {
+        if cursor_x < file_data[cursor_y].len() {
+            let lines: Vec<&str> = clip.split('\n').collect();
+            for line in lines {
+                let end = file_data[cursor_y][cursor_x + 1..].to_string();
+                file_data[cursor_y] = file_data[cursor_y][..cursor_x + 1].to_string();
+                file_data[cursor_y] += line;
+                file_data[cursor_y] += &end;
+            }
         }
     }
 }
@@ -367,6 +376,7 @@ fn main() {
                             file_data[cursor_y].remove(cursor_x);
                             mode = 'i';
                         } else if code == KeyCode::Char('x') {
+                            cursor_x = reset_cursor_end(&file_data, cursor_x, cursor_y);
                             if cursor_x < file_data[cursor_y].len() {
                                 copy_to_clipboard(&file_data[cursor_y][cursor_x..cursor_x + 1]);
                                 file_data[cursor_y].remove(cursor_x);
