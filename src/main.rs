@@ -24,7 +24,7 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
     let term_width = terminal_size.0 as usize;
     let mut y = 0;
     while y < term_height && y < file_data.len() {
-        execute!(stdout, MoveToRow(((y + 1) as u16).try_into().unwrap())).expect("Failed to move cursor");
+        execute!(stdout, MoveToRow((y as u16).try_into().unwrap())).expect("Failed to move cursor");
         let mut line: String = if file_data[window_line_y + y].len() >= window_line_x { file_data[window_line_y + y][window_line_x..].to_string() } else { "".to_string() };
         if line.len() > term_width {
             let substring = &line[..term_width];
@@ -32,7 +32,7 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
         }
         execute!(
             stdout,
-            MoveToColumn(1),
+            MoveToColumn(0),
             SetForegroundColor(Color::DarkGrey),
             Print(format!("{:4} ", window_line_y + y + 1)),
             SetForegroundColor(Color::White),
@@ -40,13 +40,13 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
         ).expect("Failed to execute command");
         y += 1;
     }
-    execute!(stdout, MoveToRow(cursor_y as u16 + 1 - window_line_y as u16)).expect("Failed to move cursor");
+    execute!(stdout, MoveToRow(cursor_y as u16 - window_line_y as u16)).expect("Failed to move cursor");
     let cursor_x_display: u16 = if cursor_x > file_data[cursor_y].len() {
         file_data[cursor_y].len().try_into().unwrap()
     } else {
         cursor_x as u16 - window_line_x as u16
     };
-    execute!(stdout, MoveToColumn(cursor_x_display as u16 + 6)).expect("Failed to move cursor");
+    execute!(stdout, MoveToColumn(cursor_x_display as u16 + 5)).expect("Failed to move cursor");
 }
 
 fn quit_terminal() {
@@ -164,7 +164,7 @@ fn main() {
     render_file_data(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
     loop {
         if let Ok(event) = crossterm::event::read() {
-            if let Event::Key(KeyEvent { code, modifiers }) = event {
+            if let Event::Key(KeyEvent { code, modifiers, .. }) = event {
                 if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
                     break;
                 } else {
@@ -178,6 +178,8 @@ fn main() {
                             cursor_y = down(&file_data, cursor_y);
                         } else if code == KeyCode::Char('k') {
                             cursor_y = up(cursor_y);
+                        } else if code == KeyCode::Char('s') && modifiers.contains(KeyModifiers::CONTROL) {
+                            save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('$') {
                             cursor_x = set_cursor_end(&file_data, cursor_y);
                             cursor_x = left(cursor_x);
@@ -198,9 +200,27 @@ fn main() {
                         } else if code == KeyCode::Char('I') {
                             cursor_x = count_leading_spaces(&file_data[cursor_y]);
                             mode = 'i';
+                        } else if code == KeyCode::Char('o') {
+                            let mut indent_level = count_leading_spaces(&file_data[cursor_y]);
+                            if file_data[cursor_y].ends_with('(') || file_data[cursor_y].ends_with('{') {
+                                indent_level += 4;
+                            }
+                            file_data.insert(cursor_y + 1, " ".repeat(indent_level).to_string());
+                            cursor_x = indent_level;
+                            cursor_y = down(&file_data, cursor_y);
+                            mode = 'i';
+                        } else if code == KeyCode::Char('O') {
+                            let mut indent_level = count_leading_spaces(&file_data[cursor_y]);
+                            if file_data[cursor_y].ends_with('(') || file_data[cursor_y].ends_with('{') {
+                                indent_level += 4;
+                            }
+                            cursor_x = indent_level;
+                            file_data.insert(cursor_y, " ".repeat(indent_level).to_string());
+                            mode = 'i';
                         } else if prev_keys == "g" && code == KeyCode::Char('g') {
                             cursor_y = 0;
-                        } else if code == KeyCode::Char('s') && modifiers.contains(KeyModifiers::CONTROL) {
+                        } else if code == KeyCode::Char('x') {
+                            file_data[cursor_y].remove(cursor_x);
                             save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('d') && modifiers.contains(KeyModifiers::CONTROL) {
                             let terminal_size = size().unwrap();
