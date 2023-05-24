@@ -2,7 +2,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::terminal::{Clear, ClearType};
-use crossterm::cursor::{MoveToColumn, MoveToRow};
+use crossterm::cursor::{Hide, Show, MoveToColumn, MoveToRow};
 use crossterm::style::{Color, Print, ResetColor, SetForegroundColor, SetAttribute, Attribute};
 use std::fs::File;
 use std::io::{self, stdout, BufRead, BufReader, Write};
@@ -25,7 +25,7 @@ fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
 
 fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: usize, cursor_x: usize, cursor_y: usize, visual_x: usize, visual_y: usize, mode: char) {
     let mut stdout = stdout();
-    execute!(stdout, Clear(ClearType::All)).expect("Failed to clear screen");
+    execute!(stdout, Hide);
     let terminal_size = size().unwrap();
     let term_height = terminal_size.1 as usize;
     let term_width = terminal_size.0 as usize;
@@ -63,12 +63,13 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
             );
             x += 1;
         }
-        if mode == 'V' && line.len() == 0 {
+        while x < term_width - 5 {
             execute!(
                 stdout,
                 SetForegroundColor(Color::White),
                 Print(" ")
             );
+            x += 1;
         }
         y += 1;
     }
@@ -79,6 +80,7 @@ fn render_file_data(file_data: &[String], window_line_x: usize, window_line_y: u
         cursor_x as u16 - window_line_x as u16
     };
     execute!(stdout, MoveToColumn(cursor_x_display as u16 + 5)).expect("Failed to move cursor");
+    execute!(stdout, Show);
 }
 
 fn quit_terminal() {
@@ -176,36 +178,39 @@ fn get_cursor_after_visual(cursor: usize, visual: usize) -> usize {
     }
 }
 
-fn get_clipboard_content() {
+fn get_clipboard_content() -> String {
     let mut clipboard: ClipboardContext = ClipboardProvider::new().ok().expect("clipboard retrieval error");
-    let paste = clipboard.get_contents().ok().expect("clipboard retreival error");
+    clipboard.get_contents().ok().expect("clipboard retreival error")
 }
 
 fn paste_before(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize, mode: char) {
-    let mut clipboard: String = "\n".to_string();
-    let (begin, end) = if cursor_y <= visual_y {
-        (cursor_y, visual_y)
-    } else {
-        (visual_y, cursor_y)
-    };
-    for i in begin..=end {
-        clipboard += &file_data[i];
-        clipboard += "\n";
+    let clip = get_clipboard_content();
+    let lines: Vec<&str> = clip.split('\n').collect();
+    for line in lines {
+        let _ = &file_data.insert(cursor_y, line.to_string());
     }
-    copy_to_clipboard(&clipboard);
+}
+
+fn paste_after(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize, mode: char) {
+    let clip = get_clipboard_content();
+    let lines: Vec<&str> = clip.split('\n').collect();
+    for line in lines {
+        let _ = &file_data.insert(cursor_y + 1, line.to_string());
+    }
 }
 
 fn copy_in_visual(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize, mode: char) {
-    let mut clipboard: String = "\n".to_string();
+    let mut clipboard: String = "".to_string();
     let (begin, end) = if cursor_y <= visual_y {
         (cursor_y, visual_y)
     } else {
         (visual_y, cursor_y)
     };
-    for i in begin..=end {
+    for i in begin..end {
         clipboard += &file_data[i];
         clipboard += "\n";
     }
+    clipboard += &file_data[end];
     copy_to_clipboard(&clipboard);
 }
 
@@ -236,7 +241,7 @@ fn delete_in_visual_and_insert(file_data: &mut Vec<String>, cursor_y: usize, vis
 }
 
 fn reset_cursor_end_file(length: usize, cursor_y: usize) -> usize {
-    if (cursor_y >= length) {
+    if cursor_y >= length {
         length - 1
     } else {
         cursor_y
@@ -346,6 +351,12 @@ fn main() {
                         } else if prev_keys == "g" && code == KeyCode::Char('g') {
                             cursor_y = 0;
                             prev_keys = "";
+                        } else if code == KeyCode::Char('P') {
+                            paste_before(&mut file_data, cursor_y, visual_y, mode);
+                            save_to_file(&file_data, file_name);
+                        } else if code == KeyCode::Char('p') {
+                            paste_after(&mut file_data, cursor_y, visual_y, mode);
+                            save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('s') {
                             file_data[cursor_y].remove(cursor_x);
                             mode = 'i';
