@@ -1,15 +1,4 @@
-mmooooooneturn 200;}function(testing) {if 200 > 300 {return true;} else {return false;}}
-ho
-
-fotake me awayever for the win
-testins
-
-
-wh
-
-
-    
-how loes t
+take me out
 haunction(testing) {
     cmooooooooooon
  how   
@@ -138,9 +127,3 @@ function(testing) {
         return true;
     } else {
         return false;
-    }
-how
-
-
-}
-howe
