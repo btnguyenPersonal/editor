@@ -18,6 +18,7 @@ me out
 take me out
         x = cursor_display_x;
 take me out
+forever that 
 take me out
 take me out
  me 
