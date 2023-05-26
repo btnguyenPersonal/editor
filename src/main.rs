@@ -69,7 +69,7 @@ fn update_terminal(
 }
 
 fn render_file_data(
-    mut prev_view: Vec<Vec<(char, Color, Color, bool)>>,
+    prev_view: Vec<Vec<(char, Color, Color, bool)>>,
     file_data: &[String],
     window_line_x: usize,
     window_line_y: usize,
@@ -101,10 +101,21 @@ fn render_file_data(
         for num in line_num_chars.chars() {
             line_render.push((num, Color::DarkGrey, Color::Black, false));
         }
-        let mut line_chars = line.chars();
+        let line_chars = line.chars();
         let highlight = is_line_highlighted(y + window_line_y, visual_y, cursor_y, mode);
+        let mut fg_color = Color::White;
         for chr in line_chars {
-            line_render.push((chr, Color::White, Color::Black, highlight));
+            if chr == '"' || chr == '\'' {
+                fg_color = Color::Magenta;
+            } else if chr == '[' || chr == ']' {
+                fg_color = Color::Green;
+            } else if chr == '{' || chr == '}' {
+                fg_color = Color::Cyan;
+            } else if chr == '(' || chr == ')' {
+                fg_color = Color::Yellow;
+            }
+            line_render.push((chr, fg_color, Color::Black, highlight));
+            fg_color = Color::White;
         }
         if line.len() == 0 {
             line_render.push((' ', Color::White, Color::Black, highlight));
@@ -520,6 +531,29 @@ fn main() {
                             cursor_y = down(&file_data, cursor_y);
                         } else if code == KeyCode::Char('k') {
                             cursor_y = up(cursor_y);
+                        } else if prev_keys == "g" && code == KeyCode::Char('g') {
+                            cursor_y = 0;
+                            prev_keys = "";
+                        } else if prev_keys == "" && code == KeyCode::Char('g') {
+                            prev_keys = "g";
+                        } else if code == KeyCode::Char('G') {
+                            cursor_y = file_data.len() - 1;
+                        } else if code == KeyCode::Char('d') && modifiers.contains(KeyModifiers::CONTROL) {
+                            let terminal_size = size().unwrap();
+                            let term_height = terminal_size.1 as usize;
+                            let mut i = 0;
+                            while i < term_height {
+                                cursor_y = down(&file_data, cursor_y);
+                                i += 2;
+                            }
+                        } else if code == KeyCode::Char('u') && modifiers.contains(KeyModifiers::CONTROL) {
+                            let terminal_size = size().unwrap();
+                            let term_height = terminal_size.1 as usize;
+                            let mut i = 0;
+                            while i < term_height {
+                                cursor_y = up(cursor_y);
+                                i += 2;
+                            }
                         } else if code == KeyCode::Char('y') {
                             copy_in_visual(&mut file_data, cursor_y, visual_y, mode);
                             cursor_y = get_cursor_after_visual(cursor_y, visual_y);
