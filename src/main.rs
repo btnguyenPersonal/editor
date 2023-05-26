@@ -101,27 +101,17 @@ fn render_file_data(
         for num in line_num_chars.chars() {
             line_render.push((num, Color::DarkGrey, Color::Black, false));
         }
+        let mut line_chars = line.chars();
+        let highlight = is_line_highlighted(y + window_line_y, visual_y, cursor_y, mode);
+        for chr in line_chars {
+            line_render.push((chr, Color::White, Color::Black, highlight));
+        }
+        if line.len() == 0 {
+            line_render.push((' ', Color::White, Color::Black, highlight));
+        }
         screen_view.push(line_render);
-        // let mut x = 0;
-        // while x < line.len() {
-        //     screen_view[y] += &line[x..x+1];
-        //     x += 1;
-        // }
-        // while x < term_width - 5 {
-        //     screen_view[y] += " ";
-        //     x += 1;
-        // }
         y += 1;
     }
-    // if prev_view.len() == 0 {
-    //     let (width, height) = size().expect("Failed to find terminal size");
-    //     let mut 
-    //     for i in 0..width {
-    //         for i in 0..height {
-    //             prev_view.push(" ".repeat(width.into()).to_string());
-    //         }
-    //     }
-    // }
     update_terminal(&prev_view, &screen_view, window_line_y, visual_y, cursor_y, mode);
     execute!(stdout, MoveToRow(cursor_y as u16 - window_line_y as u16)).expect("Failed to move cursor");
     let cursor_x_display: u16 = if cursor_x > file_data[cursor_y].len() {
