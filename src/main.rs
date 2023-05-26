@@ -102,9 +102,13 @@ fn render_file_data(
             line_render.push((num, Color::DarkGrey, Color::Black, false));
         }
         let line_chars = line.chars();
-        let highlight = is_line_highlighted(y + window_line_y, visual_y, cursor_y, mode);
+        let mut highlight = mode == 'V' && is_line_highlighted(y + window_line_y, visual_y, cursor_y);
         let mut fg_color = Color::White;
+        let mut x = 0;
         for chr in line_chars {
+            if mode == 'v' {
+                highlight = is_highlighted(x + window_line_x, y + window_line_y, visual_x, visual_y, cursor_x, cursor_y);
+            }
             if chr == '"' || chr == '\'' {
                 fg_color = Color::Magenta;
             } else if chr == '[' || chr == ']' {
@@ -116,6 +120,7 @@ fn render_file_data(
             }
             line_render.push((chr, fg_color, Color::Black, highlight));
             fg_color = Color::White;
+            x += 1;
         }
         if line.len() == 0 {
             line_render.push((' ', Color::White, Color::Black, highlight));
@@ -217,8 +222,18 @@ fn calc_window_lines(file_data: &[String], window_line_x: usize, window_line_y: 
     (x, y)
 }
 
-fn is_line_highlighted(y: usize, visual_y: usize, cursor_y: usize, mode: char) -> bool {
-    mode == 'V' && (y <= visual_y && y >= cursor_y || y >= visual_y && y <= cursor_y)
+fn is_highlighted(x: usize, y: usize, visual_x: usize, visual_y: usize, cursor_x: usize, cursor_y: usize) -> bool {
+    y < visual_y && y > cursor_y || y > visual_y && y < cursor_y
+    || (y == cursor_y && y == visual_y && visual_y >= cursor_y && x >= visual_x && x <= cursor_x)
+    || (y == cursor_y && y == visual_y && visual_y <= cursor_y && x <= visual_x && x >= cursor_x)
+    || (y == cursor_y && cursor_y < visual_y && x >= cursor_x)
+    || (y == cursor_y && cursor_y > visual_y && x <= cursor_x)
+    || (y == visual_y && cursor_y < visual_y && x <= visual_x)
+    || (y == visual_y && cursor_y > visual_y && x >= visual_x)
+}
+
+fn is_line_highlighted(y: usize, visual_y: usize, cursor_y: usize) -> bool {
+    y <= visual_y && y >= cursor_y || y >= visual_y && y <= cursor_y
 }
 
 fn get_cursor_after_visual(cursor: usize, visual: usize) -> usize {
@@ -422,6 +437,10 @@ fn main() {
                             cursor_x = indent_level;
                             file_data.insert(cursor_y, " ".repeat(indent_level).to_string());
                             mode = 'i';
+                        } else if code == KeyCode::Char('v') {
+                            mode = 'v';
+                            visual_x = cursor_x;
+                            visual_y = cursor_y;
                         } else if code == KeyCode::Char('V') {
                             mode = 'V';
                             visual_x = cursor_x;
@@ -523,6 +542,66 @@ fn main() {
                         } else if let KeyCode::Char(c) = code {
                             file_data[cursor_y].insert(cursor_x, c);
                             cursor_x += 1;
+                        }
+                    } else if mode == 'v' {
+                        if code == KeyCode::Esc {
+                            mode = 'n';
+                        } else if code == KeyCode::Char('h') {
+                            cursor_x = reset_cursor_end(&file_data, cursor_x, cursor_y);
+                            cursor_x = left(cursor_x);
+                        } else if code == KeyCode::Char('l') {
+                            cursor_x = right(&file_data, cursor_x, cursor_y);
+                        } else if code == KeyCode::Char('j') {
+                            cursor_y = down(&file_data, cursor_y);
+                        } else if code == KeyCode::Char('k') {
+                            cursor_y = up(cursor_y);
+                        } else if prev_keys == "g" && code == KeyCode::Char('g') {
+                            cursor_y = 0;
+                            prev_keys = "";
+                        } else if prev_keys == "" && code == KeyCode::Char('g') {
+                            prev_keys = "g";
+                        } else if code == KeyCode::Char('G') {
+                            cursor_y = file_data.len() - 1;
+                        } else if code == KeyCode::Char('d') && modifiers.contains(KeyModifiers::CONTROL) {
+                            let terminal_size = size().unwrap();
+                            let term_height = terminal_size.1 as usize;
+                            let mut i = 0;
+                            while i < term_height {
+                                cursor_y = down(&file_data, cursor_y);
+                                i += 2;
+                            }
+                        } else if code == KeyCode::Char('u') && modifiers.contains(KeyModifiers::CONTROL) {
+                            let terminal_size = size().unwrap();
+                            let term_height = terminal_size.1 as usize;
+                            let mut i = 0;
+                            while i < term_height {
+                                cursor_y = up(cursor_y);
+                                i += 2;
+                            }
+                        } else if code == KeyCode::Char('y') {
+                            copy_in_visual(&mut file_data, cursor_y, visual_y, mode);
+                            cursor_y = get_cursor_after_visual(cursor_y, visual_y);
+                            mode = 'n';
+                            save_to_file(&file_data, file_name);
+                        } else if code == KeyCode::Char('c') {
+                            delete_in_visual_and_insert(&mut file_data, cursor_y, visual_y, mode);
+                            cursor_y = get_cursor_after_visual(cursor_y, visual_y);
+                            cursor_y = reset_cursor_end_file(file_data.len(), cursor_y);
+                            mode = 'i';
+                            save_to_file(&file_data, file_name);
+                        } else if code == KeyCode::Char('d') {
+                            copy_in_visual(&mut file_data, cursor_y, visual_y, mode);
+                            delete_in_visual(&mut file_data, cursor_y, visual_y, mode);
+                            cursor_y = get_cursor_after_visual(cursor_y, visual_y);
+                            cursor_y = reset_cursor_end_file(file_data.len(), cursor_y);
+                            mode = 'n';
+                            save_to_file(&file_data, file_name);
+                        } else if code == KeyCode::Char('x') {
+                            delete_in_visual(&mut file_data, cursor_y, visual_y, mode);
+                            cursor_y = get_cursor_after_visual(cursor_y, visual_y);
+                            cursor_y = reset_cursor_end_file(file_data.len(), cursor_y);
+                            mode = 'n';
+                            save_to_file(&file_data, file_name);
                         }
                     } else if mode == 'V' {
                         if code == KeyCode::Esc {

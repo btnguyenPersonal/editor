@@ -1,5 +1,14 @@
 function (testing) {
     if state.col > 5 {
         return testing[500];
+        return testing[500];
+        return testing[500];
+        return testing[500];
+        return testing[500];
+        return testing[500];
+        return testing[500];
+        return testing[500];
+        return testing[500];
+        return testing[500];
     }
 }
