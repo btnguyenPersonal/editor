@@ -1,6 +1,7 @@
 function (testing) {
     if x > 5 {
-        forever todaytestslkdjflaskdfAfl;aksjd;lfkajsd;lfakl;sdf
+        return 'testing'; for the new
+        cmoon `"'testing' ''''''''''''''''''''''${testing}''''''''''"lflasldflasdf""`;
     }
 }
 

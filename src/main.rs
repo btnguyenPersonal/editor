@@ -104,12 +104,24 @@ fn render_file_data(
         let mut highlight = mode == 'V' && is_line_highlighted(y + window_line_y, visual_y, cursor_y);
         let mut fg_color = Color::White;
         let mut x = 0;
+        let mut in_string = false;
+        let mut string_char: char = '\0';
         for chr in line_chars {
             if mode == 'v' {
                 highlight = is_highlighted(x + window_line_x, y + window_line_y, visual_x, visual_y, cursor_x, cursor_y);
             }
-            if chr == '"' || chr == '\'' {
+            if in_string == true {
                 fg_color = Color::Magenta;
+            }
+            if chr == string_char && string_char != '\0' {
+                in_string = !in_string;
+                string_char = '\0';
+            } else if chr == '"' || chr == '\'' || chr == '`' {
+                fg_color = Color::Magenta;
+                if string_char == '\0' {
+                    in_string = !in_string;
+                    string_char = chr;
+                }
             } else if chr == '[' || chr == ']' {
                 fg_color = Color::Green;
             } else if chr == '{' || chr == '}' {
