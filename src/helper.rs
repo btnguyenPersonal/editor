@@ -230,34 +230,62 @@ pub fn up(cursor_y: usize) -> usize {
 }
 
 pub fn get_index_prev_word(file_data: &[String], mut cursor_x: usize, cursor_y: usize) -> usize {
+    let cursor_start = cursor_x;
     let line = &file_data[cursor_y];
-    // let current = line.chars().nth(cursor_x).unwrap();
-    // if current.is_alphanumeric() || current == '_' {
-    //     cursor_x = get_index_non_word(&file_data, cursor_x, cursor_y);
-    // }
-    let line_slice = &line[..=cursor_x].chars().rev().collect::<String>();
-    if let Some(prev_word_start) = line_slice.find(|c: char| c.is_alphanumeric() || c == '_') {
-        cursor_x - prev_word_start
+    if cursor_x == 0 {
+        return cursor_start;
+    }
+    let current = line.chars().nth(cursor_x);
+    if current == None {
+        return cursor_start;
+    }
+    cursor_x = get_index_prev_alpha_word(&file_data, cursor_x, cursor_y);
+    let prev_word_start = get_index_prev_non_word(&file_data, cursor_x, cursor_y);
+    if prev_word_start == cursor_x {
+        return 0;
+    }
+    prev_word_start + 1
+}
+
+pub fn get_index_prev_alpha_word(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
+    let line = &file_data[cursor_y];
+    let line_slice = &line[..cursor_x];
+    if let Some(prev_word_start) = line_slice.char_indices().rev().find(|(_, c)| c.is_alphanumeric() || *c == '_').map(|(i, _)| i) {
+        prev_word_start
+    } else {
+        cursor_x
+    }
+}
+
+pub fn get_index_prev_non_word(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
+    let line = &file_data[cursor_y];
+    let line_slice = &line[..cursor_x];
+    if let Some(prev_word_start) = line_slice.char_indices().rev().find(|(_, c)| !c.is_alphanumeric() && *c != '_').map(|(i, _)| i) {
+        prev_word_start
     } else {
         cursor_x
     }
 }
 
 pub fn get_index_next_word(file_data: &[String], mut cursor_x: usize, cursor_y: usize) -> usize {
+    let cursor_start = cursor_x;
     let line = &file_data[cursor_y];
-    let current = line.chars().nth(cursor_x).unwrap();
-    if current.is_alphanumeric() || current == '_' {
-        cursor_x = get_index_non_word(&file_data, cursor_x, cursor_y);
+    let current = line.chars().nth(cursor_x);
+    if current == None {
+        return cursor_start;
+    }
+    if current.unwrap().is_alphanumeric() || current.unwrap() == '_' {
+        cursor_x = get_index_next_non_word(&file_data, cursor_x, cursor_y);
     }
     let line_slice = &line[cursor_x..];
     if let Some(next_word_start) = line_slice.find(|c: char| c.is_alphanumeric() || c == '_') {
         cursor_x + next_word_start
     } else {
-        cursor_x
+        cursor_start
     }
 }
 
-pub fn get_index_non_word(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
+pub fn get_index_next_non_word(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
     let line = &file_data[cursor_y];
     let line_slice = &line[cursor_x..];
     if let Some(next_word_start) = line_slice.find(|c: char| !c.is_alphanumeric() && c != '_') {

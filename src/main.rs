@@ -82,8 +82,10 @@ fn main() {
                     } else if code == KeyCode::Char('0') {
                         cursor_x = 0;
                     } else if code == KeyCode::Char('b') {
+                        cursor_x = helper::reset_cursor_end(&file_data, cursor_x, cursor_y);
                         cursor_x = helper::get_index_prev_word(&file_data, cursor_x, cursor_y);
                     } else if code == KeyCode::Char('w') {
+                        cursor_x = helper::reset_cursor_end(&file_data, cursor_x, cursor_y);
                         cursor_x = helper::get_index_next_word(&file_data, cursor_x, cursor_y);
                     } else if code == KeyCode::Char('a') {
                         cursor_x = helper::reset_cursor_end(&file_data, cursor_x, cursor_y);
