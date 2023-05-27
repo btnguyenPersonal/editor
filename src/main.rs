@@ -6,15 +6,43 @@ use crossterm::style::{Color, Print, ResetColor, SetBackgroundColor, SetForegrou
 use std::fs::File;
 use std::io::{self, stdout, BufRead, BufReader, Write};
 use crossterm::terminal::size;
-use clipboard::ClipboardContext;
-use clipboard::ClipboardProvider;
+use std::process::{Command, Stdio};
 
-fn get_clipboard_content(clip_context: &mut ClipboardContext) -> String {
-    clip_context.get_contents().unwrap()
+fn get_clipboard_content() -> String {
+    #[cfg(target_os = "macos")]
+    let output = Command::new("pbpaste")
+        .output()
+        .expect("Failed to execute command");
+    #[cfg(target_os = "linux")]
+    let output = Command::new("xsel")
+        .args(&["-o", "-b"]) // -o for output, -b for the clipboard
+        .output()
+        .expect("Failed to execute command");
+    String::from_utf8(output.stdout).expect("Invalid UTF-8 data")
 }
 
-fn copy_to_clipboard(clip_context: &mut ClipboardContext, text: &str) {
-    let _ = clip_context.set_contents(text.to_owned());
+fn copy_to_clipboard(s: &str) -> Option<()> {
+    #[cfg(target_os = "macos")]
+    let mut command = Command::new("pbcopy");
+    #[cfg(target_os = "linux")]
+    let mut command = {
+        // See https://linux.die.net/man/1/xclip.
+        let mut c = Command::new("xclip");
+        c.arg("-in");
+        c.arg("-selection");
+        c.arg("clipboard");
+        c
+    };
+    let mut child = command.stdin(Stdio::piped()).spawn().ok()?;
+    // When stdin is dropped the fd is automatically closed. See
+    // https://doc.rust-lang.org/std/process/struct.ChildStdin.html.
+    {
+        let stdin = child.stdin.as_mut()?;
+        stdin.write_all(s.as_bytes()).ok()?;
+    }
+    // Wait on pbcopy/xclip to finish.
+    child.wait().ok()?;
+    Some(())
 }
 
 fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
@@ -302,8 +330,8 @@ fn get_cursor_after_visual(cursor: usize, visual: usize) -> usize {
     }
 }
 
-fn paste_before(mut clip_context: &mut ClipboardContext, file_data: &mut Vec<String>, cursor_x: usize, cursor_y: usize) {
-    let mut clip = get_clipboard_content(&mut clip_context);
+fn paste_before(file_data: &mut Vec<String>, cursor_x: usize, cursor_y: usize) {
+    let mut clip = get_clipboard_content();
     if clip.starts_with("\n") {
         clip.remove(0);
         let lines: Vec<&str> = clip.split('\n').collect();
@@ -327,8 +355,8 @@ fn paste_before(mut clip_context: &mut ClipboardContext, file_data: &mut Vec<Str
     }
 }
 
-fn paste_after(mut clip_context: &mut ClipboardContext, file_data: &mut Vec<String>, cursor_x: usize, cursor_y: usize) {
-    let mut clip = get_clipboard_content(&mut clip_context);
+fn paste_after(file_data: &mut Vec<String>, cursor_x: usize, cursor_y: usize) {
+    let mut clip = get_clipboard_content();
     if clip.starts_with("\n") {
         clip.remove(0);
         let lines: Vec<&str> = clip.split('\n').collect();
@@ -353,7 +381,6 @@ fn paste_after(mut clip_context: &mut ClipboardContext, file_data: &mut Vec<Stri
 }
 
 fn copy_in_visual(
-    mut clip_context: &mut ClipboardContext,
     file_data: &mut Vec<String>,
     cursor_x: usize,
     cursor_y: usize,
@@ -393,7 +420,7 @@ fn copy_in_visual(
             }
         }
     }
-    copy_to_clipboard(&mut clip_context, &clipboard);
+    copy_to_clipboard(&clipboard).expect("failed copy to clipboard");
     (begin_x, begin_y)
 }
 
@@ -477,7 +504,6 @@ fn main() {
             return;
         }
     };
-    let mut clip_context: ClipboardContext = ClipboardProvider::new().expect("Failed to create clipboard context");
     let mut window_line_x = 0;
     let mut window_line_y = 0;
     let mut cursor_x = 0;
@@ -574,11 +600,11 @@ fn main() {
                             cursor_y = 0;
                             prev_keys = "";
                         } else if code == KeyCode::Char('P') {
-                            paste_before(&mut clip_context, &mut file_data, cursor_x, cursor_y);
+                            paste_before(&mut file_data, cursor_x, cursor_y);
                             save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('p') {
                             cursor_x = prevent_cursor_end(&file_data, cursor_x, cursor_y);
-                            paste_after(&mut clip_context, &mut file_data, cursor_x, cursor_y);
+                            paste_after(&mut file_data, cursor_x, cursor_y);
                             save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('s') {
                             file_data[cursor_y].remove(cursor_x);
@@ -586,7 +612,7 @@ fn main() {
                         } else if code == KeyCode::Char('x') {
                             cursor_x = reset_cursor_end(&file_data, cursor_x, cursor_y);
                             if cursor_x < file_data[cursor_y].len() {
-                                copy_to_clipboard(&mut clip_context, &file_data[cursor_y][cursor_x..cursor_x + 1]);
+                                copy_to_clipboard(&file_data[cursor_y][cursor_x..cursor_x + 1]).expect("Failed to copy to clipboard");
                                 file_data[cursor_y].remove(cursor_x);
                                 save_to_file(&file_data, file_name);
                             }
@@ -608,16 +634,16 @@ fn main() {
                                 i += 2;
                             }
                         } else if prev_keys == "c" && code == KeyCode::Char('c') {
-                            copy_in_visual(&mut clip_context, &mut file_data, cursor_x, cursor_y, cursor_x, cursor_y, 'V');
+                            copy_in_visual(&mut file_data, cursor_x, cursor_y, cursor_x, cursor_y, 'V');
                             delete_in_visual_and_insert(&mut file_data, cursor_y, cursor_y);
                             cursor_y = reset_cursor_end_file(file_data.len(), cursor_y);
                             mode = 'i';
                             prev_keys = "";
                         } else if prev_keys == "y" && code == KeyCode::Char('y') {
-                            copy_in_visual(&mut clip_context, &mut file_data, cursor_x, cursor_y, cursor_x, cursor_y, 'V');
+                            copy_in_visual(&mut file_data, cursor_x, cursor_y, cursor_x, cursor_y, 'V');
                             prev_keys = "";
                         } else if prev_keys == "d" && code == KeyCode::Char('d') {
-                            copy_in_visual(&mut clip_context, &mut file_data, cursor_x, cursor_y, cursor_x, cursor_y, 'V');
+                            copy_in_visual(&mut file_data, cursor_x, cursor_y, cursor_x, cursor_y, 'V');
                             delete_in_visual(&mut file_data, cursor_x, cursor_y, cursor_x, cursor_y, 'V');
                             cursor_y = reset_cursor_end_file(file_data.len(), cursor_y);
                             prev_keys = "";
@@ -716,7 +742,7 @@ fn main() {
                             }
                         } else if code == KeyCode::Char('y') {
                             cursor_x = prevent_cursor_end(&file_data, cursor_x, cursor_y);
-                            copy_in_visual(&mut clip_context, &mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
+                            copy_in_visual(&mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
                             cursor_y = get_cursor_after_visual(cursor_y, visual_y);
                             cursor_x = get_cursor_after_visual(cursor_x, visual_x);
                             mode = 'n';
@@ -730,7 +756,7 @@ fn main() {
                             save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('d') {
                             cursor_x = prevent_cursor_end(&file_data, cursor_x, cursor_y);
-                            copy_in_visual(&mut clip_context, &mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
+                            copy_in_visual(&mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
                             (cursor_x, cursor_y) = delete_in_visual(&mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
                             cursor_y = get_cursor_after_visual(cursor_y, visual_y);
                             cursor_y = reset_cursor_end_file(file_data.len(), cursor_y);
@@ -784,7 +810,7 @@ fn main() {
                             cursor_y = get_cursor_after_visual(cursor_y, visual_y);
                             mode = 'n';
                         } else if code == KeyCode::Char('y') {
-                            copy_in_visual(&mut clip_context, &mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
+                            copy_in_visual(&mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
                             cursor_y = get_cursor_after_visual(cursor_y, visual_y);
                             mode = 'n';
                             save_to_file(&file_data, file_name);
@@ -795,7 +821,7 @@ fn main() {
                             mode = 'i';
                             save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('d') {
-                            copy_in_visual(&mut clip_context, &mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
+                            copy_in_visual(&mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
                             (cursor_x, cursor_y) = delete_in_visual(&mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
                             cursor_y = get_cursor_after_visual(cursor_y, visual_y);
                             cursor_y = reset_cursor_end_file(file_data.len(), cursor_y);
