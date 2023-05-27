@@ -18,7 +18,7 @@ fn send_command(
     visual_y: &mut usize,
     mode: &mut char,
     prev_keys: &mut String,
-    last_command: &mut Vec<char>,
+    last_command: &mut Vec<(KeyCode, KeyModifiers)>,
     recording: &mut bool,
     ) {
     if *mode == 'n' {
@@ -27,14 +27,21 @@ fn send_command(
                 if let KeyCode::Char(c) = code {
                     file_data[*cursor_y].remove(*cursor_x);
                     file_data[*cursor_y].insert(*cursor_x, c);
-                    helper::log_command(c, last_command, *recording);
+                    helper::log_command(code, modifiers, last_command, *recording);
                     helper::save_to_file(&file_data, file_name);
                 }
             }
             *prev_keys = "".to_string();
+        } else if code == KeyCode::Char('.') {
+            *recording = false;
+            for (last_code, last_modifiers) in last_command.iter() {
+                send_command(*last_code, *last_modifiers, file_data, file_name, cursor_x, cursor_y, visual_x, visual_y, mode, prev_keys, &mut Vec::new(), recording);
+            }
+            *recording = true;
         } else if *prev_keys == "d" && code == KeyCode::Char('i') {
             *prev_keys = "di".to_string();
         } else if *prev_keys == "di" && code == KeyCode::Char('w') {
+            // TODO
             *cursor_x = helper::get_index_next_word(&file_data, *cursor_x, *cursor_y);
             *prev_keys = "".to_string();
         } else if code == KeyCode::Char('{') {
@@ -66,27 +73,41 @@ fn send_command(
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
             *cursor_x = helper::get_index_next_word(&file_data, *cursor_x, *cursor_y);
         } else if code == KeyCode::Char('a') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
             *cursor_x = helper::right(&file_data, *cursor_x, *cursor_y);
             *mode = 'i';
         } else if code == KeyCode::Char('A') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *cursor_x = helper::set_cursor_end(&file_data, *cursor_y);
             *mode = 'i';
         } else if code == KeyCode::Char('i') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
             *mode = 'i';
         } else if code == KeyCode::Char('I') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *cursor_x = helper::count_leading_spaces(&file_data[*cursor_y]);
             *mode = 'i';
         } else if code == KeyCode::Char('>') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             file_data[*cursor_y] = helper::increase_indent(file_data[*cursor_y].clone());
             *cursor_x = helper::count_leading_spaces(&file_data[*cursor_y]);
             helper::save_to_file(&file_data, file_name);
         } else if code == KeyCode::Char('<') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             file_data[*cursor_y] = helper::reduce_indent(file_data[*cursor_y].clone());
             *cursor_x = helper::count_leading_spaces(&file_data[*cursor_y]);
             helper::save_to_file(&file_data, file_name);
         } else if code == KeyCode::Char('o') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             let mut indent_level = helper::count_leading_spaces(&file_data[*cursor_y]);
             if file_data[*cursor_y].ends_with('(') || file_data[*cursor_y].ends_with('{') {
                 indent_level += 4;
@@ -96,6 +117,8 @@ fn send_command(
             *cursor_y = helper::down(&file_data, *cursor_y);
             *mode = 'i';
         } else if code == KeyCode::Char('O') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             let mut indent_level = helper::count_leading_spaces(&file_data[*cursor_y]);
             if file_data[*cursor_y].ends_with('(') || file_data[*cursor_y].ends_with('{') {
                 indent_level += 4;
@@ -104,27 +127,40 @@ fn send_command(
             file_data.insert(*cursor_y, " ".repeat(indent_level).to_string());
             *mode = 'i';
         } else if code == KeyCode::Char('v') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *mode = 'v';
             *visual_x = *cursor_x;
             *visual_y = *cursor_y;
         } else if code == KeyCode::Char('V') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *mode = 'V';
             *visual_x = *cursor_x;
             *visual_y = *cursor_y;
         } else if *prev_keys == "g" && code == KeyCode::Char('g') {
+            helper::log_command(code, modifiers, last_command, *recording);
             *cursor_y = 0;
             *prev_keys = "".to_string();
         } else if code == KeyCode::Char('P') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             helper::paste_before(file_data, *cursor_x, *cursor_y);
             helper::save_to_file(&file_data, file_name);
         } else if code == KeyCode::Char('p') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *cursor_x = helper::prevent_cursor_end(&file_data, *cursor_x, *cursor_y);
             helper::paste_after(file_data, *cursor_x, *cursor_y);
             helper::save_to_file(&file_data, file_name);
         } else if code == KeyCode::Char('s') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             file_data[*cursor_y].remove(*cursor_x);
             *mode = 'i';
         } else if code == KeyCode::Char('x') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
             if *cursor_x < file_data[*cursor_y].len() {
                 helper::copy_to_clipboard(&file_data[*cursor_y][*cursor_x..*cursor_x + 1]).expect("Failed to copy to clipboard");
@@ -149,8 +185,10 @@ fn send_command(
                 i += 2;
             }
         } else if *prev_keys == "c" && code == KeyCode::Char('c') {
+            helper::log_command(code, modifiers, last_command, *recording);
             helper::copy_in_visual(file_data, *cursor_x, *cursor_y, *cursor_x, *cursor_y, 'V');
             helper::delete_in_visual_and_insert(file_data, *cursor_y, *cursor_y);
+            *cursor_x = 0; // TODO make indent level
             *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             *mode = 'i';
             *prev_keys = "".to_string();
@@ -158,20 +196,31 @@ fn send_command(
             helper::copy_in_visual(file_data, *cursor_x, *cursor_y, *cursor_x, *cursor_y, 'V');
             *prev_keys = "".to_string();
         } else if *prev_keys == "d" && code == KeyCode::Char('d') {
+            helper::log_command(code, modifiers, last_command, *recording);
             helper::copy_in_visual(file_data, *cursor_x, *cursor_y, *cursor_x, *cursor_y, 'V');
             helper::delete_in_visual(file_data, *cursor_x, *cursor_y, *cursor_x, *cursor_y, 'V');
             *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             *prev_keys = "".to_string();
             helper::save_to_file(&file_data, file_name);
         } else if *prev_keys == "" && code == KeyCode::Char('g') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *prev_keys = "g".to_string();
         } else if *prev_keys == "" && code == KeyCode::Char('r') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *prev_keys = "r".to_string();
         } else if *prev_keys == "" && code == KeyCode::Char('c') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *prev_keys = "c".to_string();
         } else if *prev_keys == "" && code == KeyCode::Char('d') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *prev_keys = "d".to_string();
         } else if *prev_keys == "" && code == KeyCode::Char('y') {
+            last_command.clear();
+            helper::log_command(code, modifiers, last_command, *recording);
             *prev_keys = "y".to_string();
         } else if code == KeyCode::Char('G') {
             *cursor_y = file_data.len() - 1;
@@ -221,6 +270,7 @@ fn send_command(
             file_data[*cursor_y].insert(*cursor_x, c);
             *cursor_x += 1;
         }
+        helper::log_command(code, modifiers, last_command, *recording);
     } else if *mode == 'v' {
         if code == KeyCode::Esc {
             *mode = 'n';
@@ -288,6 +338,7 @@ fn send_command(
             *mode = 'n';
             helper::save_to_file(&file_data, file_name);
         }
+        helper::log_command(code, modifiers, last_command, *recording);
     } else if *mode == 'V' {
         if code == KeyCode::Esc {
             *mode = 'n';
@@ -357,6 +408,7 @@ fn send_command(
             *mode = 'n';
             helper::save_to_file(&file_data, file_name);
         }
+        helper::log_command(code, modifiers, last_command, *recording);
     }
 }
 
@@ -393,7 +445,7 @@ fn main() {
     let mut visual_y = 0;
     let mut mode = 'n';
     let mut prev_keys = "".to_string();
-    let mut last_command: Vec<char> = Vec::new();
+    let mut last_command: Vec<(KeyCode, KeyModifiers)> = Vec::new();
     let mut recording = true;
     let mut prev_view: Vec<Vec<(char, Color, Color, bool)>> = Vec::new();
     prev_view = helper::render_file_data(prev_view.clone(), &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);

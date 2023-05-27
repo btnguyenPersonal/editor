@@ -1,11 +1,10 @@
-function ({ row: usize, col: usize }) {
+tfunction ({ row: usize, col: usize }) {
     if ()ll
-        tlle me out
-    }
-}
+te
+test
 
-function ({ row: usize, col: usize }) {
-    if () {
+
+testigjslkdfj;lasdkjf;lasdkjf
         take me out
     }
 }

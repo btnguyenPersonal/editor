@@ -2,6 +2,7 @@ use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, LeaveAlternateScreen};
 use crossterm::cursor::{MoveTo, MoveToColumn, MoveToRow};
 use crossterm::style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor, SetAttribute, Attribute};
+use crossterm::event::{KeyCode, KeyModifiers};
 use std::fs::File;
 use std::io::{self, stdout, BufRead, BufReader, Write};
 use crossterm::terminal::size;
@@ -180,9 +181,9 @@ pub fn render_file_data(
     screen_view
 }
 
-pub fn log_command(chr: char, last_command: &mut Vec<char>, recording: bool) {
+pub fn log_command(code: KeyCode, modifiers: KeyModifiers, last_command: &mut Vec<(KeyCode, KeyModifiers)>, recording: bool) {
     if recording {
-        last_command.push(chr);
+        last_command.push((code, modifiers));
     }
 }
 
