@@ -113,6 +113,7 @@ fn render_file_data(
             if in_string == true {
                 fg_color = Color::Magenta;
             }
+            // TODO comments
             if chr == string_char && string_char != '\0' {
                 in_string = !in_string;
                 string_char = '\0';
@@ -306,7 +307,7 @@ fn paste_before(mut clip_context: &mut ClipboardContext, file_data: &mut Vec<Str
     if clip.starts_with("\n") {
         clip.remove(0);
         let lines: Vec<&str> = clip.split('\n').collect();
-        for line in lines {
+        for line in lines.iter().rev() {
             let _ = &file_data.insert(cursor_y, line.to_string());
         }
     } else {
@@ -331,7 +332,7 @@ fn paste_after(mut clip_context: &mut ClipboardContext, file_data: &mut Vec<Stri
     if clip.starts_with("\n") {
         clip.remove(0);
         let lines: Vec<&str> = clip.split('\n').collect();
-        for line in lines {
+        for line in lines.iter().rev() {
             let _ = &file_data.insert(cursor_y + 1, line.to_string());
         }
     } else {
@@ -514,6 +515,10 @@ fn main() {
                             cursor_y = up(cursor_y);
                         } else if code == KeyCode::Char('s') && modifiers.contains(KeyModifiers::CONTROL) {
                             save_to_file(&file_data, file_name);
+                        } else if prev_keys == "d" && code == KeyCode::Char('i') {
+                            // prev_keys += "i";
+                        } else if prev_keys == "di" && code == KeyCode::Char('w') {
+                            // TODO prev_keys += "i";
                         } else if code == KeyCode::Char('$') {
                             cursor_x = set_cursor_end(&file_data, cursor_y);
                             cursor_x = left(cursor_x);
