@@ -4,9 +4,18 @@ use crossterm::terminal::{enable_raw_mode, EnterAlternateScreen};
 use crossterm::style::{Color};
 use std::io::{stdout};
 use crossterm::terminal::size;
+use std::panic;
 mod helper;
 
 fn main() {
+    panic::set_hook(Box::new(|panic_info| {
+        helper::quit_terminal();
+        if let Some(location) = panic_info.location() {
+            eprintln!("Panic occurred at {}:{}\n{}", location.file(), location.line(), panic_info);
+        } else {
+            eprintln!("Panic occurred at unknown location\n{}", panic_info);
+        }
+    }));
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         println!("Please provide a file name");
