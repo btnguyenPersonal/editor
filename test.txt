@@ -1,6 +1,6 @@
 function (testing) {
     if x > 5 {
-        return 'testing'; for the new
+        return 'testing()for the last time'''''; for the new
     }
 }
 

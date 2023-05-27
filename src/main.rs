@@ -113,7 +113,7 @@ fn render_file_data(
             if in_string == true {
                 fg_color = Color::Magenta;
             }
-            // TODO comments
+            // TODO comments and escape chars
             if chr == string_char && string_char != '\0' {
                 in_string = !in_string;
                 string_char = '\0';
@@ -123,11 +123,11 @@ fn render_file_data(
                     in_string = !in_string;
                     string_char = chr;
                 }
-            } else if chr == '[' || chr == ']' {
+            } else if !in_string && (chr == '[' || chr == ']') {
                 fg_color = Color::Green;
-            } else if chr == '{' || chr == '}' {
+            } else if !in_string && (chr == '{' || chr == '}') {
                 fg_color = Color::Cyan;
-            } else if chr == '(' || chr == ')' {
+            } else if !in_string && (chr == '(' || chr == ')') {
                 fg_color = Color::Yellow;
             }
             line_render.push((chr, fg_color, Color::Black, highlight));

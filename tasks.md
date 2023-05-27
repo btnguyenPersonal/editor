@@ -6,7 +6,7 @@ loadFile
 w b
 f t
 search
-syntax highlighting
+syntax highlighting // sorta
 > < =
 dot
 macros
@@ -14,5 +14,3 @@ macros
 file 10 goes to line 10
 gc
 better error handling, quit terminal before printing
-dont rerender the whole screen, just do difference
-- bruh gotta make it myself
