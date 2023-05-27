@@ -39,9 +39,11 @@ fn send_command(
             }
             *recording = true;
         } else if *prev_keys == "d" && code == KeyCode::Char('i') {
+            helper::log_command(code, modifiers, last_command, *recording);
             *prev_keys = "di".to_string();
         } else if *prev_keys == "di" && code == KeyCode::Char('w') {
-            // TODO
+            helper::log_command(code, modifiers, last_command, *recording);
+            // TODO diw
             *cursor_x = helper::get_index_next_word(&file_data, *cursor_x, *cursor_y);
             *prev_keys = "".to_string();
         } else if code == KeyCode::Char('{') {
@@ -448,7 +450,7 @@ fn main() {
     let mut last_command: Vec<(KeyCode, KeyModifiers)> = Vec::new();
     let mut recording = true;
     let mut prev_view: Vec<Vec<(char, Color, Color, bool)>> = Vec::new();
-    prev_view = helper::render_file_data(prev_view.clone(), &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
+    prev_view = helper::render_file_data(prev_view.clone(), file_name, &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
     loop {
         if let Ok(event) = crossterm::event::read() {
             let Event::Key(KeyEvent { code, modifiers, .. }) = event else { break; };
@@ -470,7 +472,7 @@ fn main() {
                     &mut recording,
                 );
                 (window_line_x, window_line_y) = helper::calc_window_lines(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
-                prev_view = helper::render_file_data(prev_view.clone(), &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
+                prev_view = helper::render_file_data(prev_view.clone(), file_name, &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
             }
         }
     }

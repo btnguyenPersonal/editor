@@ -58,7 +58,6 @@ pub fn update_terminal(
     current_render: &Vec<Vec<(char, Color, Color, bool)>>) {
 
     let mut stdout = stdout();
-    // execute!(stdout, Hide).expect("Failed to hide cursor");
     let (width, height) = size().expect("Failed to find terminal size");
     let height = height as usize;
     let width = width as usize;
@@ -92,11 +91,11 @@ pub fn update_terminal(
             }
         }
     }
-    // execute!(stdout, Show).expect("Failed to show cursor");
 }
 
 pub fn render_file_data(
     prev_view: Vec<Vec<(char, Color, Color, bool)>>,
+    file_name: &str,
     file_data: &[String],
     window_line_x: usize,
     window_line_y: usize,
@@ -129,6 +128,14 @@ pub fn render_file_data(
             line_render.push((num, Color::DarkGrey, Color::Black, false));
         }
         let line_chars = line.chars();
+        let comment_string = match get_comment_string(file_name) {
+            Some(str) => str,
+            None => "#",
+        };
+        let comment_index = match find_substring(&line, comment_string) {
+            Some(number) => number,
+            None => usize::MAX,
+        };
         let mut highlight = mode == 'V' && is_line_highlighted(y + window_line_y, visual_y, cursor_y);
         let mut fg_color = Color::White;
         let mut x = 0;
@@ -138,25 +145,28 @@ pub fn render_file_data(
             if mode == 'v' {
                 highlight = is_highlighted(x + window_line_x, y + window_line_y, visual_x, visual_y, cursor_x, cursor_y);
             }
-            if in_string == true {
-                fg_color = Color::Magenta;
-            }
-            // TODO comments and escape chars
-            if chr == string_char && string_char != '\0' {
-                in_string = !in_string;
-                string_char = '\0';
-            } else if chr == '"' || chr == '\'' || chr == '`' {
-                fg_color = Color::Magenta;
-                if string_char == '\0' {
-                    in_string = !in_string;
-                    string_char = chr;
-                }
-            } else if !in_string && (chr == '[' || chr == ']') {
+            if x >= comment_index {
                 fg_color = Color::Green;
-            } else if !in_string && (chr == '{' || chr == '}') {
-                fg_color = Color::Cyan;
-            } else if !in_string && (chr == '(' || chr == ')') {
-                fg_color = Color::Yellow;
+            } else {
+                if in_string == true {
+                    fg_color = Color::Magenta;
+                }
+                if chr == string_char && string_char != '\0' {
+                    in_string = !in_string;
+                    string_char = '\0';
+                } else if chr == '"' || chr == '\'' || chr == '`' {
+                    fg_color = Color::Magenta;
+                    if string_char == '\0' {
+                        in_string = !in_string;
+                        string_char = chr;
+                    }
+                } else if !in_string && (chr == '[' || chr == ']') {
+                    fg_color = Color::Green;
+                } else if !in_string && (chr == '{' || chr == '}') {
+                    fg_color = Color::Cyan;
+                } else if !in_string && (chr == '(' || chr == ')') {
+                    fg_color = Color::Yellow;
+                }
             }
             line_render.push((chr, fg_color, Color::Black, highlight));
             fg_color = Color::White;
@@ -179,6 +189,81 @@ pub fn render_file_data(
     };
     execute!(stdout, MoveToColumn(cursor_x_display as u16 + 5)).expect("Failed to move cursor");
     screen_view
+}
+
+fn get_comment_string(file_name: &str) -> Option<&str> {
+    if let Some(extension) = file_name.split('.').last() {
+        match extension {
+            "scss" => Some("/*"),
+            "css" => Some("/*"),
+            "html" => Some("<!--"),
+            "swift" => Some("//"),
+            "java" => Some("//"),
+            "js" => Some("//"),
+            "jsx" => Some("//"),
+            "ts" => Some("//"),
+            "tsx" => Some("//"),
+            "rs" => Some("//"),
+            "c" => Some("//"),
+            "cpp" => Some("//"),
+            "sh" => Some("#"),
+            "py" => Some("#"),
+            "rb" => Some("#"),
+            "pl" => Some("#"),
+            "php" => Some("//"),
+            "go" => Some("//"),
+            "kotlin" => Some("//"),
+            "groovy" => Some("//"),
+            "scala" => Some("//"),
+            "perl" => Some("#"),
+            "lua" => Some("--"),
+            "coffee" => Some("#"),
+            "dart" => Some("//"),
+            "h" => Some("/*"),
+            "hpp" => Some("/*"),
+            "m" => Some("//"),
+            "mm" => Some("//"),
+            "sql" => Some("--"),
+            "vb" => Some("'"),
+            "xml" => Some("<!--"),
+            "yaml" => Some("#"),
+            "dockerfile" => Some("#"),
+            "makefile" => Some("#"),
+            "bat" => Some("REM"),
+            "powershell" => Some("#"),
+            "ini" => Some(";"),
+            "cmake" => Some("#"),
+            "m4" => Some("dnl"),
+            "fish" => Some("#"),
+            "haskell" => Some("--"),
+            "elixir" => Some("#"),
+            "nim" => Some("#"),
+            "erl" => Some("%"),
+            "ex" => Some("#"),
+            "f" => Some("!"),
+            "fort" => Some("C"),
+            "f90" => Some("!"),
+            "f95" => Some("!"),
+            "hs" => Some("--"),
+            "ml" => Some("(*"),
+            "mli" => Some("(*"),
+            "scm" => Some(";;"),
+            "ss" => Some(";;"),
+            "tcl" => Some("#"),
+            "vim" => Some("\""),
+            _ => None,
+        }
+    } else {
+        None
+    }
+}
+
+pub fn find_substring(line: &str, substring: &str) -> Option<usize> {
+    if let Some(index) = line.find(substring) {
+        Some(index)
+    } else {
+        None
+    }
 }
 
 pub fn log_command(code: KeyCode, modifiers: KeyModifiers, last_command: &mut Vec<(KeyCode, KeyModifiers)>, recording: bool) {
