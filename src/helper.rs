@@ -285,6 +285,24 @@ pub fn get_index_next_word(file_data: &[String], mut cursor_x: usize, cursor_y: 
     }
 }
 
+pub fn get_next_empty_line(file_data: &[String], cursor_y: usize) -> usize {
+    for i in cursor_y+1..file_data.len() {
+        if file_data[i] == "" {
+            return i;
+        }
+    }
+    return file_data.len() - 1;
+}
+
+pub fn get_prev_empty_line(file_data: &[String], cursor_y: usize) -> usize {
+    for i in (0..cursor_y).rev() {
+        if file_data[i] == "" {
+            return i;
+        }
+    }
+    return 0;
+}
+
 pub fn get_index_next_non_word(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
     let line = &file_data[cursor_y];
     let line_slice = &line[cursor_x..];

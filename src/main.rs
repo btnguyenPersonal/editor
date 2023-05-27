@@ -63,6 +63,10 @@ fn main() {
                     } else if prev_keys == "di" && code == KeyCode::Char('w') {
                         cursor_x = helper::get_index_next_word(&file_data, cursor_x, cursor_y);
                         prev_keys = "";
+                    } else if code == KeyCode::Char('{') {
+                        cursor_y = helper::get_prev_empty_line(&file_data, cursor_y);
+                    } else if code == KeyCode::Char('}') {
+                        cursor_y = helper::get_next_empty_line(&file_data, cursor_y);
                     } else if code == KeyCode::Char('h') {
                         cursor_x = helper::reset_cursor_end(&file_data, cursor_x, cursor_y);
                         cursor_x = helper::left(cursor_x);
@@ -246,6 +250,10 @@ fn main() {
                 } else if mode == 'v' {
                     if code == KeyCode::Esc {
                         mode = 'n';
+                    } else if code == KeyCode::Char('{') {
+                        cursor_y = helper::get_prev_empty_line(&file_data, cursor_y);
+                    } else if code == KeyCode::Char('}') {
+                        cursor_y = helper::get_next_empty_line(&file_data, cursor_y);
                     } else if code == KeyCode::Char('h') {
                         cursor_x = helper::left(cursor_x);
                     } else if code == KeyCode::Char('l') {
@@ -309,6 +317,10 @@ fn main() {
                 } else if mode == 'V' {
                     if code == KeyCode::Esc {
                         mode = 'n';
+                    } else if code == KeyCode::Char('{') {
+                        cursor_y = helper::get_prev_empty_line(&file_data, cursor_y);
+                    } else if code == KeyCode::Char('}') {
+                        cursor_y = helper::get_next_empty_line(&file_data, cursor_y);
                     } else if code == KeyCode::Char('j') {
                         cursor_y = helper::down(&file_data, cursor_y);
                     } else if code == KeyCode::Char('k') {
