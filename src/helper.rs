@@ -318,7 +318,11 @@ pub fn reset_cursor_end(file_data: &[String], cursor_x: usize, cursor_y: usize) 
 }
 
 pub fn increase_indent(string: String) -> String {
-    format!("    {}", string)
+    if string == "" {
+        "    ".to_string()
+    } else {
+        format!("    {}", string)
+    }
 }
 
 pub fn reduce_indent(string: String) -> String {

@@ -102,9 +102,11 @@ fn main() {
                         mode = 'i';
                     } else if code == KeyCode::Char('>') {
                         file_data[cursor_y] = helper::increase_indent(file_data[cursor_y].clone());
+                        cursor_x = helper::count_leading_spaces(&file_data[cursor_y]);
                         helper::save_to_file(&file_data, file_name);
                     } else if code == KeyCode::Char('<') {
                         file_data[cursor_y] = helper::reduce_indent(file_data[cursor_y].clone());
+                        cursor_x = helper::count_leading_spaces(&file_data[cursor_y]);
                         helper::save_to_file(&file_data, file_name);
                     } else if code == KeyCode::Char('o') {
                         let mut indent_level = helper::count_leading_spaces(&file_data[cursor_y]);
