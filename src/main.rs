@@ -211,6 +211,40 @@ fn reset_cursor_end(file_data: &[String], cursor_x: usize, cursor_y: usize) -> u
     }
 }
 
+fn increase_indent(string: String) -> String {
+    format!("    {}", string)
+}
+
+fn reduce_indent(string: String) -> String {
+    if string.chars().take(4).all(|c| c == ' ') {
+        string.chars().skip(4).collect()
+    } else {
+        string.trim_start().to_string()
+    }
+}
+
+fn increase_indent_visual(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize) {
+    let (begin_y, end_y) = if cursor_y <= visual_y {
+        (cursor_y, visual_y)
+    } else {
+        (visual_y, cursor_y)
+    };
+    for i in begin_y..end_y+1 {
+        file_data[i] = increase_indent(file_data[i].clone());
+    }
+}
+
+fn reduce_indent_visual(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize) {
+    let (begin_y, end_y) = if cursor_y <= visual_y {
+        (cursor_y, visual_y)
+    } else {
+        (visual_y, cursor_y)
+    };
+    for i in begin_y..end_y+1 {
+        file_data[i] = reduce_indent(file_data[i].clone());
+    }
+}
+
 fn calc_window_lines(file_data: &[String], window_line_x: usize, window_line_y: usize, cursor_x: usize, cursor_y: usize) -> (usize, usize) {
     let terminal_size = size().unwrap();
     let term_height = terminal_size.1 as usize;
@@ -488,6 +522,12 @@ fn main() {
                         } else if code == KeyCode::Char('I') {
                             cursor_x = count_leading_spaces(&file_data[cursor_y]);
                             mode = 'i';
+                        } else if code == KeyCode::Char('>') {
+                            file_data[cursor_y] = increase_indent(file_data[cursor_y].clone());
+                            save_to_file(&file_data, file_name);
+                        } else if code == KeyCode::Char('<') {
+                            file_data[cursor_y] = reduce_indent(file_data[cursor_y].clone());
+                            save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('o') {
                             let mut indent_level = count_leading_spaces(&file_data[cursor_y]);
                             if file_data[cursor_y].ends_with('(') || file_data[cursor_y].ends_with('{') {
@@ -586,6 +626,16 @@ fn main() {
                             mode = 'n';
                             cursor_x = left(cursor_x);
                             save_to_file(&file_data, file_name);
+                        } else if code == KeyCode::BackTab {
+                            file_data[cursor_y] = reduce_indent(file_data[cursor_y].clone());
+                            if cursor_x >= 4 {
+                                cursor_x -= 4;
+                            } else {
+                                cursor_x = 0;
+                            }
+                        } else if code == KeyCode::Tab {
+                            file_data[cursor_y] = increase_indent(file_data[cursor_y].clone());
+                            cursor_x += 4;
                         } else if code == KeyCode::Enter {
                             let mut indent_level = count_leading_spaces(&file_data[cursor_y]);
                             if file_data[cursor_y][..cursor_x].ends_with('(') || file_data[cursor_y][..cursor_x].ends_with('{') {
@@ -651,6 +701,7 @@ fn main() {
                             cursor_x = prevent_cursor_end(&file_data, cursor_x, cursor_y);
                             copy_in_visual(&mut clip_context, &mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
                             cursor_y = get_cursor_after_visual(cursor_y, visual_y);
+                            cursor_x = get_cursor_after_visual(cursor_x, visual_x);
                             mode = 'n';
                             save_to_file(&file_data, file_name);
                         } else if code == KeyCode::Char('c') {
@@ -705,6 +756,16 @@ fn main() {
                                 cursor_y = up(cursor_y);
                                 i += 2;
                             }
+                        } else if code == KeyCode::Char('>') {
+                            increase_indent_visual(&mut file_data, cursor_y, visual_y);
+                            save_to_file(&file_data, file_name);
+                            cursor_y = get_cursor_after_visual(cursor_y, visual_y);
+                            mode = 'n';
+                        } else if code == KeyCode::Char('<') {
+                            reduce_indent_visual(&mut file_data, cursor_y, visual_y);
+                            save_to_file(&file_data, file_name);
+                            cursor_y = get_cursor_after_visual(cursor_y, visual_y);
+                            mode = 'n';
                         } else if code == KeyCode::Char('y') {
                             copy_in_visual(&mut clip_context, &mut file_data, cursor_x, cursor_y, visual_x, visual_y, mode);
                             cursor_y = get_cursor_after_visual(cursor_y, visual_y);

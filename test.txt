@@ -1,11 +1,7 @@
 function (testing) {
-    if > 5 {
-        uesttintintintinintintinting[500];
-        retutinrn take me outtake me out
-        rein
-        rn testing[500];500]hotake me outw
-        return testing[500];
-        return testing[500];
+    if x > 5 {
+        forever todaytestslkdjflaskdfAfl;aksjd;lfkajsd;lfakl;sdf
+    }
 }
 
 function (testing) {
