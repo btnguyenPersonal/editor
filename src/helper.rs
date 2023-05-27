@@ -141,6 +141,7 @@ pub fn render_file_data(
         let mut x = 0;
         let mut in_string = false;
         let mut string_char: char = '\0';
+        let mut disregard_next = false;
         for chr in line_chars {
             if mode == 'v' {
                 highlight = is_highlighted(x + window_line_x, y + window_line_y, visual_x, visual_y, cursor_x, cursor_y);
@@ -151,7 +152,7 @@ pub fn render_file_data(
                 if in_string == true {
                     fg_color = Color::Magenta;
                 }
-                if chr == string_char && string_char != '\0' {
+                if chr == string_char && string_char != '\0' && !disregard_next {
                     in_string = !in_string;
                     string_char = '\0';
                 } else if chr == '"' || chr == '\'' || chr == '`' {
@@ -166,6 +167,10 @@ pub fn render_file_data(
                     fg_color = Color::Cyan;
                 } else if !in_string && (chr == '(' || chr == ')') {
                     fg_color = Color::Yellow;
+                }
+                disregard_next = false;
+                if in_string && chr == '\\' {
+                    disregard_next = true;
                 }
             }
             line_render.push((chr, fg_color, Color::Black, highlight));
