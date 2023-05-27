@@ -180,6 +180,12 @@ pub fn render_file_data(
     screen_view
 }
 
+pub fn log_command(chr: char, last_command: &mut Vec<char>, recording: bool) {
+    if recording {
+        last_command.push(chr);
+    }
+}
+
 pub fn quit_terminal() {
     let mut stdout = stdout();
     execute!(stdout, LeaveAlternateScreen).expect("Failed to leave alternate screen");

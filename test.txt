@@ -1,6 +1,6 @@
 function ({ row: usize, col: usize }) {
-    if () {
-        take me out
+    if ()ll
+        tlle me out
     }
 }
 
@@ -12,7 +12,7 @@ function ({ row: usize, col: usize }) {
 
 function ({ row: usize, col: usize }) {
     if () {
-        take me out
+        tske me out
     }
 }
 
