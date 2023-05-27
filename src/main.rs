@@ -132,7 +132,7 @@ fn render_file_data(
     let cursor_x_display: u16 = if file_data[cursor_y].len() == 0 {
         0
     } else if cursor_x > file_data[cursor_y].len() {
-        file_data[cursor_y].len().try_into().unwrap()
+        (file_data[cursor_y].len() - 1) as u16
     } else {
         cursor_x as u16 - window_line_x as u16
     };
@@ -158,7 +158,7 @@ fn save_to_file(data: &[String], file_path: &str) {
 }
 
 fn right(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
-    if cursor_x < file_data[cursor_y].len() {
+    if cursor_x + 1 < file_data[cursor_y].len() {
         cursor_x + 1
     } else {
         cursor_x
@@ -202,8 +202,10 @@ fn prevent_cursor_end(file_data: &[String], cursor_x: usize, cursor_y: usize) ->
 }
 
 fn reset_cursor_end(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
-    if cursor_x > file_data[cursor_y].len() {
-        file_data[cursor_y].len()
+    if file_data[cursor_y].len() == 0 {
+        0
+    } else if cursor_x > file_data[cursor_y].len() - 1 {
+        file_data[cursor_y].len() - 1
     } else {
         cursor_x
     }
@@ -531,6 +533,7 @@ fn main() {
                                 file_data[cursor_y].remove(cursor_x);
                                 save_to_file(&file_data, file_name);
                             }
+                            cursor_x = reset_cursor_end(&file_data, cursor_x, cursor_y);
                         } else if code == KeyCode::Char('d') && modifiers.contains(KeyModifiers::CONTROL) {
                             let terminal_size = size().unwrap();
                             let term_height = terminal_size.1 as usize;
