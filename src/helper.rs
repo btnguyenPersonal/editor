@@ -229,6 +229,44 @@ pub fn up(cursor_y: usize) -> usize {
     }
 }
 
+pub fn get_index_prev_word(file_data: &[String], mut cursor_x: usize, cursor_y: usize) -> usize {
+    let line = &file_data[cursor_y];
+    // let current = line.chars().nth(cursor_x).unwrap();
+    // if current.is_alphanumeric() || current == '_' {
+    //     cursor_x = get_index_non_word(&file_data, cursor_x, cursor_y);
+    // }
+    let line_slice = &line[..=cursor_x].chars().rev().collect::<String>();
+    if let Some(prev_word_start) = line_slice.find(|c: char| c.is_alphanumeric() || c == '_') {
+        cursor_x - prev_word_start
+    } else {
+        cursor_x
+    }
+}
+
+pub fn get_index_next_word(file_data: &[String], mut cursor_x: usize, cursor_y: usize) -> usize {
+    let line = &file_data[cursor_y];
+    let current = line.chars().nth(cursor_x).unwrap();
+    if current.is_alphanumeric() || current == '_' {
+        cursor_x = get_index_non_word(&file_data, cursor_x, cursor_y);
+    }
+    let line_slice = &line[cursor_x..];
+    if let Some(next_word_start) = line_slice.find(|c: char| c.is_alphanumeric() || c == '_') {
+        cursor_x + next_word_start
+    } else {
+        cursor_x
+    }
+}
+
+pub fn get_index_non_word(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
+    let line = &file_data[cursor_y];
+    let line_slice = &line[cursor_x..];
+    if let Some(next_word_start) = line_slice.find(|c: char| !c.is_alphanumeric() && c != '_') {
+        cursor_x + next_word_start
+    } else {
+        cursor_x
+    }
+}
+
 pub fn set_cursor_end(file_data: &[String], cursor_y: usize) -> usize {
     file_data[cursor_y].len()
 }
