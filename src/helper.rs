@@ -196,7 +196,82 @@ pub fn render_file_data(
     screen_view
 }
 
-fn get_comment_string(file_name: &str) -> Option<&str> {
+pub fn starts_with_after_trim(my_string: &str, substring: &str) -> bool {
+    let trimmed_string = my_string.trim_start();
+    trimmed_string.starts_with(substring)
+}
+
+pub fn remove_substring_and_space_after(my_string: &str, substring: &str) -> String {
+    if let Some(index) = my_string.find(substring) {
+        let mut result = String::with_capacity(my_string.len());
+        result.push_str(&my_string[..index]);
+        if let Some(next_char) = my_string.get(index + substring.len()..).and_then(|s| s.chars().next()) {
+            if next_char.is_whitespace() {
+                result.push_str(&my_string[index + substring.len() + next_char.len_utf8()..]);
+            } else {
+                result.push_str(&my_string[index + substring.len()..]);
+            }
+        } else {
+            result.push_str(&my_string[index + substring.len()..]);
+        }
+        result
+    } else {
+        String::from(my_string)
+    }
+}
+
+pub fn toggle_comments_in_visual(file_data: &mut [String], comment_string: &str, cursor_y: usize, visual_y: usize) {
+    let (begin_y, end_y) = if cursor_y <= visual_y {
+        (cursor_y, visual_y)
+    } else {
+        (visual_y, cursor_y)
+    };
+    let mut lowest_indent = 0;
+    let mut are_all_commented = true;
+    for i in begin_y..end_y+1 {
+        let current_indent = count_leading_spaces(&file_data[i].clone());
+        if lowest_indent > current_indent {
+            lowest_indent = current_indent;
+        }
+        if !starts_with_after_trim(&file_data[i].clone(), comment_string) && file_data[i].len() != 0 {
+            are_all_commented = false;
+        }
+    }
+    for i in begin_y..end_y+1 {
+        if are_all_commented {
+            file_data[i] = toggle_comment(file_data[i].clone(), comment_string);
+        } else {
+            file_data[i] = comment_at_index(file_data[i].clone(), comment_string, lowest_indent);
+        }
+    }
+}
+
+pub fn comment_at_index(mut line: String, comment_string: &str, index: usize) -> String {
+    if line.len() != 0 {
+        line.insert_str(index, " ");
+        line.insert_str(index, comment_string);
+        line
+    } else {
+        line
+    }
+}
+
+pub fn toggle_comment(mut line: String, comment_string: &str) -> String {
+    if line.len() != 0 {
+        if !starts_with_after_trim(&line, comment_string) {
+            let start = count_leading_spaces(&line);
+            line.insert_str(start, " ");
+            line.insert_str(start, comment_string);
+            line
+        } else {
+            remove_substring_and_space_after(&line, comment_string)
+        }
+    } else {
+        line
+    }
+}
+
+pub fn get_comment_string(file_name: &str) -> Option<&str> {
     if let Some(extension) = file_name.split('.').last() {
         match extension {
             "scss" => Some("/*"),

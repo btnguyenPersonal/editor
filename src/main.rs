@@ -186,6 +186,16 @@ fn send_command(
                 *cursor_y = helper::up(*cursor_y);
                 i += 2;
             }
+        } else if *prev_keys == "g" && code == KeyCode::Char('c') {
+            helper::log_command(code, modifiers, last_command, *recording);
+            let comment_string = match helper::get_comment_string(file_name) {
+                Some(chr) => chr,
+                None => "#",
+            };
+            file_data[*cursor_y] = helper::toggle_comment(file_data[*cursor_y].clone(), comment_string);
+            *cursor_x = helper::count_leading_spaces(&file_data[*cursor_y]);
+            *prev_keys = "".to_string();
+            helper::save_to_file(&file_data, file_name);
         } else if *prev_keys == "c" && code == KeyCode::Char('c') {
             helper::log_command(code, modifiers, last_command, *recording);
             helper::copy_in_visual(file_data, *cursor_x, *cursor_y, *cursor_x, *cursor_y, 'V');
@@ -355,6 +365,16 @@ fn send_command(
         } else if *prev_keys == "g" && code == KeyCode::Char('g') {
             *cursor_y = 0;
             *prev_keys = "".to_string();
+        } else if *prev_keys == "g" && code == KeyCode::Char('c') {
+            let comment_string = match helper::get_comment_string(file_name) {
+                Some(chr) => chr,
+                None => "#",
+            };
+            helper::toggle_comments_in_visual(file_data, comment_string, *cursor_y, *visual_y);
+            *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
+            *prev_keys = "".to_string();
+            *mode = 'n';
+            helper::save_to_file(&file_data, file_name);
         } else if *prev_keys == "" && code == KeyCode::Char('g') {
             *prev_keys = "g".to_string();
         } else if code == KeyCode::Char('G') {

@@ -1,10 +1,4 @@
-tfunction ({ row: usize, col: usize }) {
-    if ()ll
-te
-test
 
-
-f;lasdkj// hhfal;skdjf;lkasdff //
         take me out
     }
 }
