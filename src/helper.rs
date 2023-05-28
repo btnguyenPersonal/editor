@@ -106,6 +106,7 @@ pub fn render_file_data(
     mode: char,
     search_string: String,
     searching: bool,
+    macro_recording: bool,
 ) -> Vec<Vec<(char, Color, Color, bool)>> {
     let mut stdout = stdout();
     if mode == 'i' {
@@ -118,6 +119,11 @@ pub fn render_file_data(
     let term_width = terminal_size.0 as usize;
     let mut screen_view: Vec<Vec<(char, Color, Color, bool)>> = Vec::new();
     let mut y = 0;
+    let fg = if macro_recording {
+        Color::Red
+    } else {
+        Color::DarkGrey
+    };
     while y < term_height && window_line_y + y < file_data.len() {
         execute!(stdout, MoveToRow((y as u16).try_into().unwrap())).expect("Failed to move cursor");
         let mut line: String = if file_data[window_line_y + y].len() >= window_line_x {
@@ -132,7 +138,7 @@ pub fn render_file_data(
         let line_num_chars = format!("{:4} ", window_line_y + y + 1);
         let mut line_render = Vec::new();
         for num in line_num_chars.chars() {
-            line_render.push((num, Color::DarkGrey, Color::Black, false));
+            line_render.push((num, fg, Color::Black, false));
         }
         let line_chars = line.chars();
         let comment_string = match get_comment_string(file_name) {

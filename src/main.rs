@@ -22,6 +22,8 @@ fn send_command(
     recording: &mut bool,
     search_string: &mut String,
     searching: &mut bool,
+    macro_command: &mut Vec<(KeyCode, KeyModifiers)>,
+    macro_recording: &mut bool,
     ) {
     if *mode == 'n' {
         *searching = false;
@@ -53,9 +55,13 @@ fn send_command(
                     recording,
                     search_string,
                     searching,
+                    macro_command,
+                    macro_recording,
                 );
             }
             *recording = true;
+        } else if code == KeyCode::Char('q') {
+            *macro_recording = !*macro_recording;
         } else if *prev_keys == "d" && code == KeyCode::Char('i') {
             helper::log_command(code, modifiers, last_command, *recording);
             *prev_keys = "di".to_string();
@@ -544,6 +550,8 @@ fn main() {
     let mut searching = false;
     let mut search_string = "".to_string();
     let mut prev_view: Vec<Vec<(char, Color, Color, bool)>> = Vec::new();
+    let mut macro_command: Vec<(KeyCode, KeyModifiers)> = Vec::new();
+    let mut macro_recording = false;
     prev_view = helper::render_file_data(
         prev_view.clone(),
         file_name,
@@ -556,7 +564,8 @@ fn main() {
         visual_y,
         mode,
         search_string.clone(),
-        searching
+        searching,
+        macro_recording
     );
     loop {
         if let Ok(event) = crossterm::event::read() {
@@ -579,6 +588,8 @@ fn main() {
                     &mut recording,
                     &mut search_string,
                     &mut searching,
+                    &mut macro_command,
+                    &mut macro_recording,
                 );
                 (window_line_x, window_line_y) = helper::calc_window_lines(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
                 prev_view = helper::render_file_data(
@@ -593,7 +604,8 @@ fn main() {
                     visual_y,
                     mode,
                     search_string.clone(),
-                    searching
+                    searching,
+                    macro_recording
                 );
             }
         }
