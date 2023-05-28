@@ -43,6 +43,8 @@ fn send_command(
                 }
             }
             *prev_keys = "".to_string();
+        } else if code == KeyCode::Char('z') {
+            (*window_line_x, *window_line_y) = helper::center_screen(*cursor_y);
         } else if code == KeyCode::Char(',') {
             *recording = false;
             for (macro_code, macro_modifiers) in macro_command.iter() {
@@ -351,6 +353,7 @@ fn send_command(
                 Some((x, y)) => (x, y),
                 None => (*cursor_x, *cursor_y)
             };
+            (*window_line_x, *window_line_y) = helper::center_screen(*cursor_y);
             *searching = true;
         } else if code == KeyCode::Char('n') {
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
@@ -358,6 +361,7 @@ fn send_command(
                 Some((x, y)) => (x, y),
                 None => (*cursor_x, *cursor_y)
             };
+            (*window_line_x, *window_line_y) = helper::center_screen(*cursor_y);
             *searching = true;
         } else if code == KeyCode::Char('u') {
             match diff_history.undo() {
@@ -396,6 +400,7 @@ fn send_command(
             Some((x, y)) => (x, y),
             None => (*cursor_x, *cursor_y)
         };
+        (*window_line_x, *window_line_y) = helper::center_screen(*cursor_y);
         helper::log_command(code, modifiers, last_command, *recording);
     } else if *mode == 'i' {
         if code == KeyCode::Esc {

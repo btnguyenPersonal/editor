@@ -46,6 +46,16 @@ pub fn copy_to_clipboard(s: &str) -> Option<()> {
     Some(())
 }
 
+pub fn center_screen(cursor_y: usize) -> (usize, usize) {
+    let (_, height) = size().expect("Failed to find terminal size");
+    let new_window_line_y = if cursor_y >= (height / 2).into() {
+        cursor_y - (height / 2) as usize
+    } else {
+        0
+    };
+    (0 as usize, new_window_line_y)
+}
+
 pub fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
     let file_path = format!("{}", file_name);
     let file = File::open(file_path)?;
