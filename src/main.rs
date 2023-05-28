@@ -565,32 +565,47 @@ fn main() {
         mode,
         search_string.clone(),
         searching,
-        macro_recording
+        macro_recording,
+        true,
     );
     loop {
         if let Ok(event) = crossterm::event::read() {
-            let Event::Key(KeyEvent { code, modifiers, .. }) = event else { break; };
-            if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
+            let mut key_code: Option<KeyCode> = None;
+            let mut key_modifiers: Option<KeyModifiers> = None;
+            let mut resize = false;
+            match event {
+                Event::Key(KeyEvent { code, modifiers, .. }) => {
+                    key_code = Some(code);
+                    key_modifiers = Some(modifiers);
+                },
+                Event::Resize(_, _) => {
+                    resize = true;
+                },
+                _ => break,
+            }
+            if key_code != None && key_code.unwrap() == KeyCode::Char('c') && key_modifiers.unwrap().contains(KeyModifiers::CONTROL) {
                 break;
             } else {
-                send_command(
-                    code,
-                    modifiers,
-                    &mut file_data,
-                    file_name,
-                    &mut cursor_x,
-                    &mut cursor_y,
-                    &mut visual_x,
-                    &mut visual_y,
-                    &mut mode,
-                    &mut prev_keys,
-                    &mut last_command,
-                    &mut recording,
-                    &mut search_string,
-                    &mut searching,
-                    &mut macro_command,
-                    &mut macro_recording,
-                );
+                if !resize {
+                    send_command(
+                        key_code.unwrap(),
+                        key_modifiers.unwrap(),
+                        &mut file_data,
+                        file_name,
+                        &mut cursor_x,
+                        &mut cursor_y,
+                        &mut visual_x,
+                        &mut visual_y,
+                        &mut mode,
+                        &mut prev_keys,
+                        &mut last_command,
+                        &mut recording,
+                        &mut search_string,
+                        &mut searching,
+                        &mut macro_command,
+                        &mut macro_recording,
+                    );
+                }
                 (window_line_x, window_line_y) = helper::calc_window_lines(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
                 prev_view = helper::render_file_data(
                     prev_view.clone(),
@@ -605,7 +620,8 @@ fn main() {
                     mode,
                     search_string.clone(),
                     searching,
-                    macro_recording
+                    macro_recording,
+                    resize,
                 );
             }
         }

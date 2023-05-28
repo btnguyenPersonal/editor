@@ -55,7 +55,8 @@ pub fn get_file_data(file_name: &str) -> io::Result<Vec<String>> {
 
 pub fn update_terminal(
     prev_render: &Vec<Vec<(char, Color, Color, bool)>>,
-    current_render: &Vec<Vec<(char, Color, Color, bool)>>) {
+    current_render: &Vec<Vec<(char, Color, Color, bool)>>,
+    full_render: bool) {
 
     let mut stdout = stdout();
     let (width, height) = size().expect("Failed to find terminal size");
@@ -73,7 +74,7 @@ pub fn update_terminal(
             } else {
                 (' ', Color::White, Color::Black, false)
             };
-            if prev_char != current_char || prev_fg != current_fg || prev_bg != current_bg || prev_reverse != current_reverse {
+            if prev_char != current_char || prev_fg != current_fg || prev_bg != current_bg || prev_reverse != current_reverse || full_render {
                 if current_reverse {
                     execute!(
                         stdout,
@@ -107,6 +108,7 @@ pub fn render_file_data(
     search_string: String,
     searching: bool,
     macro_recording: bool,
+    full_render: bool,
 ) -> Vec<Vec<(char, Color, Color, bool)>> {
     let mut stdout = stdout();
     if mode == 'i' {
@@ -208,7 +210,7 @@ pub fn render_file_data(
         screen_view.push(line_render);
         y += 1;
     }
-    update_terminal(&prev_view, &screen_view);
+    update_terminal(&prev_view, &screen_view, full_render);
     execute!(stdout, MoveToRow(cursor_y as u16 - window_line_y as u16)).expect("Failed to move cursor");
     let cursor_x_display: u16 = if file_data[cursor_y].len() == 0 {
         0
