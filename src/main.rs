@@ -265,7 +265,7 @@ fn send_command(
             };
         } else if code == KeyCode::Char('n') {
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
-            (*cursor_x, *cursor_y) = match helper::find_next_occurrence(file_data, *cursor_x + 1, *cursor_y, search_string.clone()) {
+            (*cursor_x, *cursor_y) = match helper::find_next_occurrence(file_data, *cursor_x + 1, *cursor_y, search_string) {
                 Some((x, y)) => (x, y),
                 None => (*cursor_x, *cursor_y)
             };
@@ -285,7 +285,7 @@ fn send_command(
         } else if let KeyCode::Char(c) = code {
             search_string.push(c);
         }
-        (*cursor_x, *cursor_y) = match helper::find_next_occurrence(file_data, *cursor_x, *cursor_y, search_string.clone()) {
+        (*cursor_x, *cursor_y) = match helper::find_next_occurrence(file_data, *cursor_x, *cursor_y, search_string) {
             Some((x, y)) => (x, y),
             None => (*cursor_x, *cursor_y)
         };

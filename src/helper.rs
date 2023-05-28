@@ -270,14 +270,14 @@ pub fn get_prev_occurrence(file_data: &[String], mut cursor_x: usize, mut cursor
     }
 }
 
-pub fn find_next_occurrence(file_data: &[String], mut cursor_x: usize, mut cursor_y: usize, search_string: String) -> Option<(usize, usize)> {
+pub fn find_next_occurrence(file_data: &[String], mut cursor_x: usize, mut cursor_y: usize, search_string: &str) -> Option<(usize, usize)> {
     let num_lines = file_data.len();
     let initial_pos = cursor_y;
     let mut has_looped = false;
     loop {
         let line = &file_data[cursor_y];
         if cursor_x < line.len() {
-            if let Some(index) = line[cursor_x..].find(&search_string) {
+            if let Some(index) = line[cursor_x..].find(search_string) {
                 return Some((cursor_x + index, cursor_y));
             }
         }
