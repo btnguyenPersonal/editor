@@ -336,6 +336,11 @@ fn send_command(
     } else if *mode == 'v' {
         if code == KeyCode::Esc {
             *mode = 'n';
+        } else if code == KeyCode::Char('*') {
+            *mode = 'n';
+            *searching = true;
+            (*cursor_x, *visual_x) = helper::normalize(*cursor_x, *visual_x);
+            *search_string = file_data[*cursor_y][*cursor_x..*visual_x+1].to_string();
         } else if code == KeyCode::Char('{') {
             *cursor_y = helper::get_prev_empty_line(&file_data, *cursor_y);
         } else if code == KeyCode::Char('}') {

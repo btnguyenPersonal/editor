@@ -569,6 +569,14 @@ pub fn reduce_indent(string: String) -> String {
     }
 }
 
+pub fn normalize(cursor: usize, visual: usize) -> (usize, usize) {
+    if cursor <= visual {
+        (cursor, visual)
+    } else {
+        (visual, cursor)
+    }
+}
+
 pub fn increase_indent_visual(file_data: &mut Vec<String>, cursor_y: usize, visual_y: usize) {
     let (begin_y, end_y) = if cursor_y <= visual_y {
         (cursor_y, visual_y)

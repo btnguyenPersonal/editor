@@ -3,7 +3,7 @@ jkljk        take me out
     }
 }
 
-function ({ row: function usize, col: usize }) {
+function ({ row: functiozna usize, col: usize }) {
     if () {
         tske me out
     }
