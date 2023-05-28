@@ -101,6 +101,7 @@ fn send_command(
                 Some((prev_state, (x, y))) => { *file_data = prev_state; *cursor_x = x; *cursor_y = y },
                 None => ()
             }
+            *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             if file_data.len() == 0 {
                 file_data.insert(0, "".to_string());
             }
@@ -110,6 +111,7 @@ fn send_command(
                 Some((next_state, (x, y))) => { *file_data = next_state; *cursor_x = x; *cursor_y = y },
                 None => ()
             }
+            *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             if file_data.len() == 0 {
                 file_data.insert(0, "".to_string());
             }
@@ -367,7 +369,6 @@ fn send_command(
             *searching = true;
         } else if code == KeyCode::Esc {
             *prev_keys = "".to_string();
-            helper::save_to_file(file_data, file_name, diff_history, *pos);
         }
     } else if *mode == '/' {
         if code == KeyCode::Esc {
