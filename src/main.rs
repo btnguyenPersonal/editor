@@ -20,6 +20,8 @@ fn send_command(
     prev_keys: &mut String,
     last_command: &mut Vec<(KeyCode, KeyModifiers)>,
     recording: &mut bool,
+    search_string: &mut String,
+    searching: &mut bool,
     ) {
     if *mode == 'n' {
         if prev_keys == "r" {
@@ -35,7 +37,22 @@ fn send_command(
         } else if code == KeyCode::Char('.') {
             *recording = false;
             for (last_code, last_modifiers) in last_command.iter() {
-                send_command(*last_code, *last_modifiers, file_data, file_name, cursor_x, cursor_y, visual_x, visual_y, mode, prev_keys, &mut Vec::new(), recording);
+                send_command(
+                    *last_code,
+                    *last_modifiers,
+                    file_data,
+                    file_name,
+                    cursor_x,
+                    cursor_y,
+                    visual_x,
+                    visual_y,
+                    mode,
+                    prev_keys,
+                    &mut Vec::new(),
+                    recording,
+                    search_string,
+                    searching,
+                );
             }
             *recording = true;
         } else if *prev_keys == "d" && code == KeyCode::Char('i') {
@@ -236,10 +253,43 @@ fn send_command(
             *prev_keys = "y".to_string();
         } else if code == KeyCode::Char('G') {
             *cursor_y = file_data.len() - 1;
+        } else if code == KeyCode::Char('/') {
+            *mode = '/';
+            *search_string = "".to_string();
+            *searching = true;
+        } else if code == KeyCode::Char('N') {
+            *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
+            (*cursor_x, *cursor_y) = match helper::get_prev_occurrence(file_data, *cursor_x, *cursor_y, search_string) {
+                Some((x, y)) => (x, y),
+                None => (*cursor_x, *cursor_y)
+            };
+        } else if code == KeyCode::Char('n') {
+            *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
+            (*cursor_x, *cursor_y) = match helper::find_next_occurrence(file_data, *cursor_x + 1, *cursor_y, search_string.clone()) {
+                Some((x, y)) => (x, y),
+                None => (*cursor_x, *cursor_y)
+            };
         } else if code == KeyCode::Esc {
             *prev_keys = "".to_string();
             helper::save_to_file(&file_data, file_name);
         }
+    } else if *mode == '/' {
+        if code == KeyCode::Esc {
+            *mode = 'n';
+            *searching = false;
+        } else if code == KeyCode::Enter {
+            *mode = 'n';
+            *searching = false;
+        } else if code == KeyCode::Backspace {
+            search_string.pop();
+        } else if let KeyCode::Char(c) = code {
+            search_string.push(c);
+        }
+        (*cursor_x, *cursor_y) = match helper::find_next_occurrence(file_data, *cursor_x, *cursor_y, search_string.clone()) {
+            Some((x, y)) => (x, y),
+            None => (*cursor_x, *cursor_y)
+        };
+        helper::log_command(code, modifiers, last_command, *recording);
     } else if *mode == 'i' {
         if code == KeyCode::Esc {
             *mode = 'n';
@@ -298,9 +348,25 @@ fn send_command(
             *cursor_y = helper::down(&file_data, *cursor_y);
         } else if code == KeyCode::Char('k') {
             *cursor_y = helper::up(*cursor_y);
+        } else if code == KeyCode::Char('b') {
+            *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
+            *cursor_x = helper::get_index_prev_word(&file_data, *cursor_x, *cursor_y);
+        } else if code == KeyCode::Char('w') {
+            *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
+            *cursor_x = helper::get_index_next_word(&file_data, *cursor_x, *cursor_y);
         } else if *prev_keys == "g" && code == KeyCode::Char('g') {
             *cursor_y = 0;
             *prev_keys = "".to_string();
+        } else if *prev_keys == "g" && code == KeyCode::Char('c') {
+            let comment_string = match helper::get_comment_string(file_name) {
+                Some(chr) => chr,
+                None => "#",
+            };
+            helper::toggle_comments_in_visual(file_data, comment_string, *cursor_y, *visual_y);
+            *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
+            *prev_keys = "".to_string();
+            *mode = 'n';
+            helper::save_to_file(&file_data, file_name);
         } else if *prev_keys == "" && code == KeyCode::Char('g') {
             *prev_keys = "g".to_string();
         } else if code == KeyCode::Char('G') {
@@ -469,6 +535,8 @@ fn main() {
     let mut prev_keys = "".to_string();
     let mut last_command: Vec<(KeyCode, KeyModifiers)> = Vec::new();
     let mut recording = true;
+    let mut searching = false;
+    let mut search_string = "".to_string();
     let mut prev_view: Vec<Vec<(char, Color, Color, bool)>> = Vec::new();
     prev_view = helper::render_file_data(prev_view.clone(), file_name, &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
     loop {
@@ -490,6 +558,8 @@ fn main() {
                     &mut prev_keys,
                     &mut last_command,
                     &mut recording,
+                    &mut search_string,
+                    &mut searching,
                 );
                 (window_line_x, window_line_y) = helper::calc_window_lines(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
                 prev_view = helper::render_file_data(prev_view.clone(), file_name, &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);

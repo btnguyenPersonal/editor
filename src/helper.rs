@@ -246,6 +246,52 @@ pub fn toggle_comments_in_visual(file_data: &mut [String], comment_string: &str,
     }
 }
 
+pub fn get_prev_occurrence(file_data: &[String], mut cursor_x: usize, mut cursor_y: usize, search_string: &str) -> Option<(usize, usize)> {
+    let num_lines = file_data.len();
+    let initial_y = cursor_y;
+    let mut has_looped = false;
+    loop {
+        let line = &file_data[cursor_y];
+        if cursor_x != 0 {
+            if let Some(index) = line[..cursor_x-1].rfind(search_string) {
+                return Some((index, cursor_y));
+            }
+        }
+        if cursor_y == 0 {
+            cursor_y = num_lines - 1;
+            has_looped = true;
+        } else {
+            cursor_y -= 1;
+        }
+        cursor_x = file_data[cursor_y].len();
+        if has_looped && cursor_y < initial_y {
+            return None;
+        }
+    }
+}
+
+pub fn find_next_occurrence(file_data: &[String], mut cursor_x: usize, mut cursor_y: usize, search_string: String) -> Option<(usize, usize)> {
+    let num_lines = file_data.len();
+    let initial_pos = cursor_y;
+    let mut has_looped = false;
+    loop {
+        let line = &file_data[cursor_y];
+        if cursor_x < line.len() {
+            if let Some(index) = line[cursor_x..].find(&search_string) {
+                return Some((cursor_x + index, cursor_y));
+            }
+        }
+        cursor_x = 0;
+        cursor_y = (cursor_y + 1) % num_lines;
+        if cursor_y == 0 {
+            has_looped = true;
+        }
+        if has_looped && cursor_y > initial_pos {
+            return None;
+        }
+    }
+}
+
 pub fn comment_at_index(mut line: String, comment_string: &str, index: usize) -> String {
     if line.len() != 0 {
         line.insert_str(index, " ");

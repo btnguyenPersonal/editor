@@ -1,4 +1,3 @@
-gc
 macros
 search
 
@@ -12,6 +11,7 @@ syntax highlighting // sorta
 file 10 goes to line 10
 
 dot
+gc
 w b
 > < =
 better error handling, quit terminal before printing
