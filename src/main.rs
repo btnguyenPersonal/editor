@@ -88,12 +88,21 @@ fn send_command(
                 macro_command.clear();
             }
             *macro_recording = !*macro_recording;
+        } else if *prev_keys == "y" && code == KeyCode::Char('i') {
+            *prev_keys = "yi".to_string();
+        } else if *prev_keys == "yi" && code == KeyCode::Char('w') {
+            *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
+            match helper::get_in_word(&file_data[*cursor_y], *cursor_x) {
+                Some((begin, end)) => {
+                    let new_end = helper::prevent_cursor_end(&file_data, end, *cursor_y);
+                    (*cursor_x, *cursor_y) = helper::copy_in_visual(file_data, begin, *cursor_y, new_end, *cursor_y, 'v');
+                }
+                None => ()
+            };
+            *prev_keys = "".to_string();
         } else if *prev_keys == "c" && code == KeyCode::Char('i') {
             helper::log_command(code, modifiers, last_command, *recording);
             *prev_keys = "ci".to_string();
-        } else if *prev_keys == "d" && code == KeyCode::Char('i') {
-            helper::log_command(code, modifiers, last_command, *recording);
-            *prev_keys = "di".to_string();
         } else if *prev_keys == "ci" && code == KeyCode::Char('w') {
             helper::log_command(code, modifiers, last_command, *recording);
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
@@ -106,12 +115,16 @@ fn send_command(
             };
             *mode = 'i';
             *prev_keys = "".to_string();
+        } else if *prev_keys == "d" && code == KeyCode::Char('i') {
+            helper::log_command(code, modifiers, last_command, *recording);
+            *prev_keys = "di".to_string();
         } else if *prev_keys == "di" && code == KeyCode::Char('w') {
             helper::log_command(code, modifiers, last_command, *recording);
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
             match helper::get_in_word(&file_data[*cursor_y], *cursor_x) {
                 Some((begin, end)) => {
                     let new_end = helper::prevent_cursor_end(&file_data, end, *cursor_y);
+                    helper::copy_in_visual(file_data, begin, *cursor_y, new_end, *cursor_y, 'v');
                     (*cursor_x, *cursor_y) = helper::delete_in_visual(file_data, begin, *cursor_y, new_end, *cursor_y, 'v');
                 }
                 None => ()

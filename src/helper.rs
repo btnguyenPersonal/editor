@@ -723,12 +723,15 @@ pub fn paste_before(file_data: &mut Vec<String>, cursor_x: usize, cursor_y: usiz
             let mut end = lines.last().expect("Can't get last").to_string();
             end += &file_data[cursor_y][cursor_x..].to_string();
             file_data[cursor_y] = file_data[cursor_y][..cursor_x].to_string();
-            file_data[cursor_y] += lines[0];
             let mut y = 1;
-            let _ = &file_data.insert(cursor_y + 1, end.to_string());
-            while y < lines.len() - 1 {
-                let _ = &file_data.insert(cursor_y + 1, lines[y].to_string());
-                y += 1;
+            if lines.len() > 1 {
+                let _ = &file_data.insert(cursor_y + 1, end.to_string());
+                while y < lines.len() - 1 {
+                    let _ = &file_data.insert(cursor_y + 1, lines[y].to_string());
+                    y += 1;
+                }
+            } else {
+                file_data[cursor_y] += &end;
             }
         }
     }
@@ -748,12 +751,15 @@ pub fn paste_after(file_data: &mut Vec<String>, cursor_x: usize, cursor_y: usize
             let mut end = lines.last().expect("Can't get last").to_string();
             end += &file_data[cursor_y][cursor_x+1..].to_string();
             file_data[cursor_y] = file_data[cursor_y][..cursor_x+1].to_string();
-            file_data[cursor_y] += lines[0];
             let mut y = 1;
-            let _ = &file_data.insert(cursor_y + 1, end.to_string());
-            while y < lines.len() - 1 {
-                let _ = &file_data.insert(cursor_y + 1, lines[y].to_string());
-                y += 1;
+            if lines.len() > 1 {
+                let _ = &file_data.insert(cursor_y + 1, end.to_string());
+                while y < lines.len() - 1 {
+                    let _ = &file_data.insert(cursor_y + 1, lines[y].to_string());
+                    y += 1;
+                }
+            } else {
+                file_data[cursor_y] += &end;
             }
         }
     }
