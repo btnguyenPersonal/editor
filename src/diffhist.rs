@@ -28,7 +28,7 @@ impl DiffHistory {
         if self.history.len() == 0 {
             return String::new();
         }
-        self.history[self.current].diffs.iter().filter_map(|diff| {
+        self.history[self.current - 1].diffs.iter().filter_map(|diff| {
             match diff {
                 difference::Difference::Same(ref x) |
                 difference::Difference::Add(ref x) => Some(x.clone()),

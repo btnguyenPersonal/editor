@@ -639,6 +639,7 @@ fn main() {
     let mut macro_command: Vec<(KeyCode, KeyModifiers)> = Vec::new();
     let mut macro_recording = false;
     let mut diff_history = diffhist::DiffHistory::new();
+    // diff_history.create_snapshot(&mut file_data);
     prev_view = helper::render_file_data(
         prev_view.clone(),
         file_name,
