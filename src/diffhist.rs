@@ -1,67 +1,44 @@
-use difference::Changeset;
-
 pub struct DiffHistory {
-    history: Vec<Changeset>,
-    current: usize,
+    undo_stack: Vec<Vec<String>>,
+    redo_stack: Vec<Vec<String>>,
+    current_doc: Vec<String>,
+    current_pos: (usize, usize),
 }
 
+
 impl DiffHistory {
-    pub fn new() -> Self {
-        Self {
-            history: Vec::new(),
-            current: 0,
+    pub fn new(doc: Vec<String>) -> Self {
+        DiffHistory {
+            current_doc: doc,
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            current_pos: (0, 0),
         }
     }
 
-    pub fn create_snapshot(&mut self, state: &mut Vec<String>) {
-        let state_as_string = state.join("\n");
-        let previous_state_as_string = self.get_current_state_as_string();
-        let changeset = Changeset::new(&previous_state_as_string, &state_as_string, "\n");
-        if self.history.len() != 0 && self.current != self.history.len() - 1 {
-            self.history.truncate(self.current + 1);
-        }
-        self.history.push(changeset);
-        self.current += 1;
+    pub fn make_change(&mut self, new_doc: Vec<String>, new_pos: (usize, usize)) {
+        self.undo_stack.push(self.current_doc.clone());
+        self.redo_stack.clear();
+        self.current_doc = new_doc;
+        self.current_pos = new_pos;
     }
 
-    fn get_current_state_as_string(&self) -> String {
-        if self.history.len() == 0 {
-            return String::new();
+
+    pub fn undo(&mut self) -> Option<(Vec<String>, (usize, usize))> {
+        if let Some(old_doc) = self.undo_stack.pop() {
+            self.redo_stack.push(self.current_doc.clone());
+            self.current_doc = old_doc;
+            return Some((self.current_doc.clone(), self.current_pos));
         }
-        self.history[self.current - 1].diffs.iter().filter_map(|diff| {
-            match diff {
-                difference::Difference::Same(ref x) |
-                difference::Difference::Add(ref x) => Some(x.clone()),
-                _ => None,
-            }
-        }).collect::<Vec<String>>().join("\n")
+        None
     }
     
-    fn reconstruct_state(&self, changeset: &Changeset) -> String {
-        changeset.diffs.iter().map(|diff| {
-            match diff {
-                difference::Difference::Same(ref x) |
-                difference::Difference::Add(ref x) => x.clone(),
-                _ => String::new(),
-            }
-        }).collect::<Vec<String>>().join("\n")
-    }
-
-    pub fn undo(&mut self) -> Option<String> {
-        if self.current > 1 {
-            self.current -= 1;
+    pub fn redo(&mut self) -> Option<(Vec<String>, (usize, usize))> {
+        if let Some(old_doc) = self.redo_stack.pop() {
+            self.undo_stack.push(self.current_doc.clone());
+            self.current_doc = old_doc;
+            return Some((self.current_doc.clone(), self.current_pos));
         }
-        self.get_state(self.current)
-    }
-    
-    pub fn redo(&mut self) -> Option<String> {
-        if self.current < self.history.len() - 1 {
-            self.current += 1;
-        }
-        self.get_state(self.current)
-    }
-
-    fn get_state(&self, index: usize) -> Option<String> {
-        self.history.get(index).map(|changeset| self.reconstruct_state(changeset))
+        None
     }
 }

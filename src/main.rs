@@ -26,8 +26,10 @@ fn send_command(
     macro_command: &mut Vec<(KeyCode, KeyModifiers)>,
     macro_recording: &mut bool,
     diff_history: &mut diffhist::DiffHistory,
+    pos: &mut (usize, usize),
     ) {
     if *mode == 'n' {
+        *pos = (*cursor_x, *cursor_y);
         *searching = false;
         if prev_keys == "r" {
             if *cursor_x < file_data[*cursor_y].len() {
@@ -35,7 +37,7 @@ fn send_command(
                     file_data[*cursor_y].remove(*cursor_x);
                     file_data[*cursor_y].insert(*cursor_x, c);
                     helper::log_command(code, modifiers, last_command, *recording);
-                    helper::save_to_file(file_data, file_name, diff_history);
+                    helper::save_to_file(file_data, file_name, diff_history, *pos);
                 }
             }
             *prev_keys = "".to_string();
@@ -60,6 +62,7 @@ fn send_command(
                     &mut Vec::new(),
                     macro_recording,
                     diff_history,
+                    pos,
                 );
             }
             *recording = true;
@@ -84,6 +87,7 @@ fn send_command(
                     macro_command,
                     macro_recording,
                     diff_history,
+                    pos,
                 );
             }
             *recording = true;
@@ -94,20 +98,22 @@ fn send_command(
             *macro_recording = !*macro_recording;
         } else if code == KeyCode::Char('u') {
             match diff_history.undo() {
-                Some(prev_state) => *file_data = prev_state.lines().map(String::from).collect(),
+                Some((prev_state, (x, y))) => { *file_data = prev_state; *cursor_x = x; *cursor_y = y },
                 None => ()
             }
-            *cursor_x = 0;
-            *cursor_y = 0;
-            // helper::save_to_file_no_snapshot(file_data, file_name);
+            if file_data.len() == 0 {
+                file_data.insert(0, "".to_string());
+            }
+            helper::save_to_file_no_snapshot(file_data, file_name);
         } else if code == KeyCode::Char('r') && modifiers.contains(KeyModifiers::CONTROL) {
             match diff_history.redo() {
-                Some(next_state) => *file_data = next_state.lines().map(String::from).collect(),
+                Some((next_state, (x, y))) => { *file_data = next_state; *cursor_x = x; *cursor_y = y },
                 None => ()
             }
-            *cursor_x = 0;
-            *cursor_y = 0;
-            // helper::save_to_file_no_snapshot(file_data, file_name);
+            if file_data.len() == 0 {
+                file_data.insert(0, "".to_string());
+            }
+            helper::save_to_file_no_snapshot(file_data, file_name);
         } else if *prev_keys == "y" && code == KeyCode::Char('i') {
             *prev_keys = "yi".to_string();
         } else if *prev_keys == "yi" && code == KeyCode::Char('w') {
@@ -149,7 +155,7 @@ fn send_command(
                 }
                 None => ()
             };
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
             *prev_keys = "".to_string();
         } else if code == KeyCode::Char('{') {
             *cursor_y = helper::get_prev_empty_line(&file_data, *cursor_y);
@@ -165,7 +171,7 @@ fn send_command(
         } else if code == KeyCode::Char('k') {
             *cursor_y = helper::up(*cursor_y);
         } else if code == KeyCode::Char('s') && modifiers.contains(KeyModifiers::CONTROL) {
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if code == KeyCode::Char('$') {
             *cursor_x = helper::set_cursor_end(&file_data, *cursor_y);
             *cursor_x = helper::left(*cursor_x);
@@ -205,13 +211,13 @@ fn send_command(
             helper::log_command(code, modifiers, last_command, *recording);
             file_data[*cursor_y] = helper::increase_indent(file_data[*cursor_y].clone());
             *cursor_x = helper::count_leading_spaces(&file_data[*cursor_y]);
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if code == KeyCode::Char('<') {
             last_command.clear();
             helper::log_command(code, modifiers, last_command, *recording);
             file_data[*cursor_y] = helper::reduce_indent(file_data[*cursor_y].clone());
             *cursor_x = helper::count_leading_spaces(&file_data[*cursor_y]);
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if code == KeyCode::Char('o') {
             last_command.clear();
             helper::log_command(code, modifiers, last_command, *recording);
@@ -253,13 +259,13 @@ fn send_command(
             last_command.clear();
             helper::log_command(code, modifiers, last_command, *recording);
             helper::paste_before(file_data, *cursor_x, *cursor_y);
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if code == KeyCode::Char('p') {
             last_command.clear();
             helper::log_command(code, modifiers, last_command, *recording);
             *cursor_x = helper::prevent_cursor_end(&file_data, *cursor_x, *cursor_y);
             helper::paste_after(file_data, *cursor_x, *cursor_y);
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if code == KeyCode::Char('s') {
             last_command.clear();
             helper::log_command(code, modifiers, last_command, *recording);
@@ -272,7 +278,7 @@ fn send_command(
             if *cursor_x < file_data[*cursor_y].len() {
                 helper::copy_to_clipboard(&file_data[*cursor_y][*cursor_x..*cursor_x + 1]).expect("Failed to copy to clipboard");
                 file_data[*cursor_y].remove(*cursor_x);
-                helper::save_to_file(file_data, file_name, diff_history);
+                helper::save_to_file(file_data, file_name, diff_history, *pos);
             }
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
         } else if code == KeyCode::Char('d') && modifiers.contains(KeyModifiers::CONTROL) {
@@ -300,7 +306,7 @@ fn send_command(
             file_data[*cursor_y] = helper::toggle_comment(file_data[*cursor_y].clone(), comment_string);
             *cursor_x = helper::count_leading_spaces(&file_data[*cursor_y]);
             *prev_keys = "".to_string();
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if *prev_keys == "c" && code == KeyCode::Char('c') {
             helper::log_command(code, modifiers, last_command, *recording);
             helper::copy_in_visual(file_data, *cursor_x, *cursor_y, *cursor_x, *cursor_y, 'V');
@@ -318,7 +324,7 @@ fn send_command(
             helper::delete_in_visual(file_data, *cursor_x, *cursor_y, *cursor_x, *cursor_y, 'V');
             *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             *prev_keys = "".to_string();
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if *prev_keys == "" && code == KeyCode::Char('g') {
             last_command.clear();
             helper::log_command(code, modifiers, last_command, *recording);
@@ -361,7 +367,7 @@ fn send_command(
             *searching = true;
         } else if code == KeyCode::Esc {
             *prev_keys = "".to_string();
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         }
     } else if *mode == '/' {
         if code == KeyCode::Esc {
@@ -382,7 +388,7 @@ fn send_command(
         if code == KeyCode::Esc {
             *mode = 'n';
             *cursor_x = helper::left(*cursor_x);
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if code == KeyCode::BackTab {
             file_data[*cursor_y] = helper::reduce_indent(file_data[*cursor_y].clone());
             if *cursor_x >= 4 {
@@ -466,7 +472,7 @@ fn send_command(
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *prev_keys = "".to_string();
             *mode = 'n';
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if *prev_keys == "" && code == KeyCode::Char('g') {
             *prev_keys = "g".to_string();
         } else if code == KeyCode::Char('G') {
@@ -493,14 +499,13 @@ fn send_command(
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *cursor_x = helper::get_cursor_after_visual(*cursor_x, *visual_x);
             *mode = 'n';
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if code == KeyCode::Char('c') {
             *cursor_x = helper::prevent_cursor_end(&file_data, *cursor_x, *cursor_y);
             (*cursor_x, *cursor_y) = helper::delete_in_visual(file_data, *cursor_x, *cursor_y, *visual_x, *visual_y, *mode);
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             *mode = 'i';
-            helper::save_to_file(file_data, file_name, diff_history);
         } else if code == KeyCode::Char('d') {
             *cursor_x = helper::prevent_cursor_end(&file_data, *cursor_x, *cursor_y);
             helper::copy_in_visual(file_data, *cursor_x, *cursor_y, *visual_x, *visual_y, *mode);
@@ -508,13 +513,13 @@ fn send_command(
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             *mode = 'n';
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if code == KeyCode::Char('x') {
             (*cursor_x, *cursor_y) = helper::delete_in_visual(file_data, *cursor_x, *cursor_y, *visual_x, *visual_y, *mode);
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             *mode = 'n';
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         }
         helper::log_command(code, modifiers, last_command, *recording);
     } else if *mode == 'V' {
@@ -540,7 +545,7 @@ fn send_command(
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *prev_keys = "".to_string();
             *mode = 'n';
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if *prev_keys == "" && code == KeyCode::Char('g') {
             *prev_keys = "g".to_string();
         } else if code == KeyCode::Char('G') {
@@ -563,38 +568,37 @@ fn send_command(
             }
         } else if code == KeyCode::Char('>') {
             helper::increase_indent_visual(file_data, *cursor_y, *visual_y);
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *mode = 'n';
         } else if code == KeyCode::Char('<') {
             helper::reduce_indent_visual(file_data, *cursor_y, *visual_y);
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *mode = 'n';
         } else if code == KeyCode::Char('y') {
             helper::copy_in_visual(file_data, *cursor_x, *cursor_y, *visual_x, *visual_y, *mode);
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *mode = 'n';
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if code == KeyCode::Char('c') {
             helper::delete_in_visual_and_insert(file_data, *cursor_y, *visual_y);
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             *mode = 'i';
-            helper::save_to_file(file_data, file_name, diff_history);
         } else if code == KeyCode::Char('d') {
             helper::copy_in_visual(file_data, *cursor_x, *cursor_y, *visual_x, *visual_y, *mode);
             (*cursor_x, *cursor_y) = helper::delete_in_visual(file_data, *cursor_x, *cursor_y, *visual_x, *visual_y, *mode);
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             *mode = 'n';
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         } else if code == KeyCode::Char('x') {
             (*cursor_x, *cursor_y) = helper::delete_in_visual(file_data, *cursor_x, *cursor_y, *visual_x, *visual_y, *mode);
             *cursor_y = helper::get_cursor_after_visual(*cursor_y, *visual_y);
             *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
             *mode = 'n';
-            helper::save_to_file(file_data, file_name, diff_history);
+            helper::save_to_file(file_data, file_name, diff_history, *pos);
         }
         helper::log_command(code, modifiers, last_command, *recording);
     }
@@ -640,11 +644,11 @@ fn main() {
     let mut prev_view: Vec<Vec<(char, Color, Color, bool)>> = Vec::new();
     let mut macro_command: Vec<(KeyCode, KeyModifiers)> = Vec::new();
     let mut macro_recording = false;
-    let mut diff_history = diffhist::DiffHistory::new();
+    let mut diff_history = diffhist::DiffHistory::new(file_data.clone());
+    let mut pos = (0, 0);
     if file_data.len() == 0 {
         file_data.insert(0, "".to_string());
     }
-    diff_history.create_snapshot(&mut file_data);
     prev_view = helper::render_file_data(
         prev_view.clone(),
         file_name,
@@ -701,6 +705,7 @@ fn main() {
                         &mut macro_command,
                         &mut macro_recording,
                         &mut diff_history,
+                        &mut pos,
                     );
                 }
                 (window_line_x, window_line_y) = helper::calc_window_lines(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);

@@ -443,8 +443,8 @@ pub fn save_to_file_no_snapshot(data: &mut Vec<String>, file_path: &str) {
     }
 }
 
-pub fn save_to_file(data: &mut Vec<String>, file_path: &str, diff_history: &mut diffhist::DiffHistory) {
-    diff_history.create_snapshot(data);
+pub fn save_to_file(data: &mut Vec<String>, file_path: &str, diff_history: &mut diffhist::DiffHistory, pos: (usize, usize)) {
+    diff_history.make_change(data.clone(), pos);
     if let Ok(mut file) = File::create(file_path) {
         for line in data {
             let _ = file.write_all(line.as_bytes());
@@ -875,6 +875,9 @@ pub fn delete_in_visual_and_insert(file_data: &mut Vec<String>, cursor_y: usize,
         file_data.remove(begin);
     }
     file_data.insert(begin, "".to_string());
+    if file_data.len() == 0 {
+        file_data.insert(0, "".to_string());
+    }
 }
 
 pub fn reset_cursor_end_file(length: usize, cursor_y: usize) -> usize {
