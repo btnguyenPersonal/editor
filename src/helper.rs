@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::{self, stdout, BufRead, BufReader, Write};
 use crossterm::terminal::size;
 use std::process::{Command, Stdio};
+use crate::diffhist;
 
 pub fn get_clipboard_content() -> String {
     #[cfg(target_os = "macos")]
@@ -431,7 +432,19 @@ pub fn quit_terminal() {
     disable_raw_mode().expect("Failed to disable raw mode");
 }
 
-pub fn save_to_file(data: &[String], file_path: &str) {
+pub fn save_to_file_no_snapshot(data: &mut Vec<String>, file_path: &str) {
+    if let Ok(mut file) = File::create(file_path) {
+        for line in data {
+            let _ = file.write_all(line.as_bytes());
+            let _ = file.write_all(b"\n");
+        }
+    } else {
+        println!("Failed to save the file");
+    }
+}
+
+pub fn save_to_file(data: &mut Vec<String>, file_path: &str, diff_history: &mut diffhist::DiffHistory) {
+    diff_history.create_snapshot(data);
     if let Ok(mut file) = File::create(file_path) {
         for line in data {
             let _ = file.write_all(line.as_bytes());
