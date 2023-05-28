@@ -1,8 +1,13 @@
 c, d, and y commands (make them all work more or less similarly)
-- set anchor point, then after one more change, eval the file_data
+ - iw done
+ - iB nope
+ - i[ nope
+ - ib nope
+undo/redo
+f t
+
 visualBlock
 loadFile
-f t
 syntax highlighting // sorta
 -999
 file 10 goes to line 10
