@@ -1,6 +1,6 @@
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, LeaveAlternateScreen};
-use crossterm::cursor::{MoveTo, MoveToColumn, MoveToRow};
+use crossterm::cursor::{SetCursorStyle, MoveTo, MoveToColumn, MoveToRow};
 use crossterm::style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor, SetAttribute, Attribute};
 use crossterm::event::{KeyCode, KeyModifiers};
 use std::fs::File;
@@ -103,9 +103,16 @@ pub fn render_file_data(
     cursor_y: usize,
     visual_x: usize,
     visual_y: usize,
-    mode: char
+    mode: char,
+    search_string: String,
+    searching: bool,
 ) -> Vec<Vec<(char, Color, Color, bool)>> {
     let mut stdout = stdout();
+    if mode == 'i' {
+        execute!(stdout, SetCursorStyle::SteadyBar).unwrap();
+    } else {
+        execute!(stdout, SetCursorStyle::DefaultUserShape).unwrap();
+    }
     let terminal_size = size().unwrap();
     let term_height = terminal_size.1 as usize;
     let term_width = terminal_size.0 as usize;
@@ -138,11 +145,17 @@ pub fn render_file_data(
         };
         let mut highlight = mode == 'V' && is_line_highlighted(y + window_line_y, visual_y, cursor_y);
         let mut fg_color = Color::White;
+        let mut bg_color = Color::Black;
         let mut x = 0;
         let mut in_string = false;
         let mut string_char: char = '\0';
         let mut disregard_next = false;
-        for chr in line_chars {
+        let search_len = search_string.len();
+        let mut search_ranges: Vec<(usize, usize)> = vec![];
+        for (index, _) in line.match_indices(&search_string) {
+            search_ranges.push((index, index + search_len));
+        }
+        for (chr_index, chr) in line_chars.enumerate() {
             if mode == 'v' {
                 highlight = is_highlighted(x + window_line_x, y + window_line_y, visual_x, visual_y, cursor_x, cursor_y);
             }
@@ -172,8 +185,14 @@ pub fn render_file_data(
                 if in_string && chr == '\\' {
                     disregard_next = true;
                 }
+                if searching && search_ranges.iter().any(|&(start, end)| chr_index >= start && chr_index < end) {
+                    fg_color = Color::Black;
+                    bg_color = Color::Green;
+                } else {
+                    bg_color = Color::Black;
+                }
             }
-            line_render.push((chr, fg_color, Color::Black, highlight));
+            line_render.push((chr, fg_color, bg_color, highlight));
             fg_color = Color::White;
             x += 1;
         }

@@ -24,6 +24,7 @@ fn send_command(
     searching: &mut bool,
     ) {
     if *mode == 'n' {
+        *searching = false;
         if prev_keys == "r" {
             if *cursor_x < file_data[*cursor_y].len() {
                 if let KeyCode::Char(c) = code {
@@ -263,12 +264,14 @@ fn send_command(
                 Some((x, y)) => (x, y),
                 None => (*cursor_x, *cursor_y)
             };
+            *searching = true;
         } else if code == KeyCode::Char('n') {
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
             (*cursor_x, *cursor_y) = match helper::find_next_occurrence(file_data, *cursor_x + 1, *cursor_y, search_string) {
                 Some((x, y)) => (x, y),
                 None => (*cursor_x, *cursor_y)
             };
+            *searching = true;
         } else if code == KeyCode::Esc {
             *prev_keys = "".to_string();
             helper::save_to_file(&file_data, file_name);
@@ -276,10 +279,8 @@ fn send_command(
     } else if *mode == '/' {
         if code == KeyCode::Esc {
             *mode = 'n';
-            *searching = false;
         } else if code == KeyCode::Enter {
             *mode = 'n';
-            *searching = false;
         } else if code == KeyCode::Backspace {
             search_string.pop();
         } else if let KeyCode::Char(c) = code {
@@ -543,7 +544,20 @@ fn main() {
     let mut searching = false;
     let mut search_string = "".to_string();
     let mut prev_view: Vec<Vec<(char, Color, Color, bool)>> = Vec::new();
-    prev_view = helper::render_file_data(prev_view.clone(), file_name, &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
+    prev_view = helper::render_file_data(
+        prev_view.clone(),
+        file_name,
+        &file_data,
+        window_line_x,
+        window_line_y,
+        cursor_x,
+        cursor_y,
+        visual_x,
+        visual_y,
+        mode,
+        search_string.clone(),
+        searching
+    );
     loop {
         if let Ok(event) = crossterm::event::read() {
             let Event::Key(KeyEvent { code, modifiers, .. }) = event else { break; };
@@ -567,7 +581,20 @@ fn main() {
                     &mut searching,
                 );
                 (window_line_x, window_line_y) = helper::calc_window_lines(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
-                prev_view = helper::render_file_data(prev_view.clone(), file_name, &file_data, window_line_x, window_line_y, cursor_x, cursor_y, visual_x, visual_y, mode);
+                prev_view = helper::render_file_data(
+                    prev_view.clone(),
+                    file_name,
+                    &file_data,
+                    window_line_x,
+                    window_line_y,
+                    cursor_x,
+                    cursor_y,
+                    visual_x,
+                    visual_y,
+                    mode,
+                    search_string.clone(),
+                    searching
+                );
             }
         }
     }
