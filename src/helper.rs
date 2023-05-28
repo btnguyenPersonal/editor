@@ -442,6 +442,14 @@ pub fn save_to_file(data: &[String], file_path: &str) {
     }
 }
 
+pub fn right_insert(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
+    if cursor_x + 1 <= file_data[cursor_y].len() {
+        cursor_x + 1
+    } else {
+        cursor_x
+    }
+}
+
 pub fn right(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
     if cursor_x + 1 < file_data[cursor_y].len() {
         cursor_x + 1

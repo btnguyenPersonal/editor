@@ -125,7 +125,7 @@ fn send_command(
             last_command.clear();
             helper::log_command(code, modifiers, last_command, *recording);
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
-            *cursor_x = helper::right(&file_data, *cursor_x, *cursor_y);
+            *cursor_x = helper::right_insert(&file_data, *cursor_x, *cursor_y);
             *mode = 'i';
         } else if code == KeyCode::Char('A') {
             last_command.clear();
