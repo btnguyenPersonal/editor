@@ -26,12 +26,14 @@ fn send_command(
     macro_command: &mut Vec<(KeyCode, KeyModifiers)>,
     macro_recording: &mut bool,
     diff_history: &mut diffhist::DiffHistory,
+    window_line_x: &mut usize,
+    window_line_y: &mut usize,
     pos: &mut (usize, usize),
     ) {
     if *mode == 'n' {
         *pos = (*cursor_x, *cursor_y);
         *searching = false;
-        if prev_keys == "r" {
+        if prev_keys == "r" && !modifiers.contains(KeyModifiers::CONTROL) {
             if *cursor_x < file_data[*cursor_y].len() {
                 if let KeyCode::Char(c) = code {
                     file_data[*cursor_y].remove(*cursor_x);
@@ -62,6 +64,8 @@ fn send_command(
                     &mut Vec::new(),
                     macro_recording,
                     diff_history,
+                    window_line_x,
+                    window_line_y,
                     pos,
                 );
             }
@@ -87,6 +91,8 @@ fn send_command(
                     macro_command,
                     macro_recording,
                     diff_history,
+                    window_line_x,
+                    window_line_y,
                     pos,
                 );
             }
@@ -96,26 +102,28 @@ fn send_command(
                 macro_command.clear();
             }
             *macro_recording = !*macro_recording;
-        } else if code == KeyCode::Char('u') {
-            match diff_history.undo() {
-                Some((prev_state, (x, y))) => { *file_data = prev_state; *cursor_x = x; *cursor_y = y },
-                None => ()
+        } else if code == KeyCode::Char('d') && modifiers.contains(KeyModifiers::CONTROL) {
+            let terminal_size = size().unwrap();
+            let term_height = terminal_size.1 as usize;
+            let mut i = 0;
+            while i < term_height {
+                *cursor_y = helper::down(&file_data, *cursor_y);
+                if *window_line_y < file_data.len() {
+                    *window_line_y += 1;
+                }
+                i += 2;
             }
-            *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
-            if file_data.len() == 0 {
-                file_data.insert(0, "".to_string());
+        } else if code == KeyCode::Char('u') && modifiers.contains(KeyModifiers::CONTROL) {
+            let terminal_size = size().unwrap();
+            let term_height = terminal_size.1 as usize;
+            let mut i = 0;
+            while i < term_height {
+                *cursor_y = helper::up(*cursor_y);
+                if *window_line_y > 0 {
+                    *window_line_y -= 1;
+                }
+                i += 2;
             }
-            helper::save_to_file_no_snapshot(file_data, file_name);
-        } else if code == KeyCode::Char('r') && modifiers.contains(KeyModifiers::CONTROL) {
-            match diff_history.redo() {
-                Some((next_state, (x, y))) => { *file_data = next_state; *cursor_x = x; *cursor_y = y },
-                None => ()
-            }
-            *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
-            if file_data.len() == 0 {
-                file_data.insert(0, "".to_string());
-            }
-            helper::save_to_file_no_snapshot(file_data, file_name);
         } else if *prev_keys == "y" && code == KeyCode::Char('i') {
             *prev_keys = "yi".to_string();
         } else if *prev_keys == "yi" && code == KeyCode::Char('w') {
@@ -283,22 +291,6 @@ fn send_command(
                 helper::save_to_file(file_data, file_name, diff_history, *pos);
             }
             *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
-        } else if code == KeyCode::Char('d') && modifiers.contains(KeyModifiers::CONTROL) {
-            let terminal_size = size().unwrap();
-            let term_height = terminal_size.1 as usize;
-            let mut i = 0;
-            while i < term_height {
-                *cursor_y = helper::down(&file_data, *cursor_y);
-                i += 2;
-            }
-        } else if code == KeyCode::Char('u') && modifiers.contains(KeyModifiers::CONTROL) {
-            let terminal_size = size().unwrap();
-            let term_height = terminal_size.1 as usize;
-            let mut i = 0;
-            while i < term_height {
-                *cursor_y = helper::up(*cursor_y);
-                i += 2;
-            }
         } else if *prev_keys == "g" && code == KeyCode::Char('c') {
             helper::log_command(code, modifiers, last_command, *recording);
             let comment_string = match helper::get_comment_string(file_name) {
@@ -367,6 +359,26 @@ fn send_command(
                 None => (*cursor_x, *cursor_y)
             };
             *searching = true;
+        } else if code == KeyCode::Char('u') {
+            match diff_history.undo() {
+                Some((prev_state, (x, y))) => { *file_data = prev_state; *cursor_x = x; *cursor_y = y },
+                None => ()
+            }
+            *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
+            if file_data.len() == 0 {
+                file_data.insert(0, "".to_string());
+            }
+            helper::save_to_file_no_snapshot(file_data, file_name);
+        } else if code == KeyCode::Char('r') && modifiers.contains(KeyModifiers::CONTROL) {
+            match diff_history.redo() {
+                Some((next_state, (x, y))) => { *file_data = next_state; *cursor_x = x; *cursor_y = y },
+                None => ()
+            }
+            *cursor_y = helper::reset_cursor_end_file(file_data.len(), *cursor_y);
+            if file_data.len() == 0 {
+                file_data.insert(0, "".to_string());
+            }
+            helper::save_to_file_no_snapshot(file_data, file_name);
         } else if code == KeyCode::Esc {
             *prev_keys = "".to_string();
         }
@@ -484,6 +496,9 @@ fn send_command(
             let mut i = 0;
             while i < term_height {
                 *cursor_y = helper::down(&file_data, *cursor_y);
+                if *window_line_y < file_data.len() {
+                    *window_line_y += 1;
+                }
                 i += 2;
             }
         } else if code == KeyCode::Char('u') && modifiers.contains(KeyModifiers::CONTROL) {
@@ -492,6 +507,9 @@ fn send_command(
             let mut i = 0;
             while i < term_height {
                 *cursor_y = helper::up(*cursor_y);
+                if *window_line_y > 0 {
+                    *window_line_y -= 1;
+                }
                 i += 2;
             }
         } else if code == KeyCode::Char('y') {
@@ -557,6 +575,9 @@ fn send_command(
             let mut i = 0;
             while i < term_height {
                 *cursor_y = helper::down(&file_data, *cursor_y);
+                if *window_line_y < file_data.len() {
+                    *window_line_y += 1;
+                }
                 i += 2;
             }
         } else if code == KeyCode::Char('u') && modifiers.contains(KeyModifiers::CONTROL) {
@@ -565,6 +586,9 @@ fn send_command(
             let mut i = 0;
             while i < term_height {
                 *cursor_y = helper::up(*cursor_y);
+                if *window_line_y > 0 {
+                    *window_line_y -= 1;
+                }
                 i += 2;
             }
         } else if code == KeyCode::Char('>') {
@@ -687,6 +711,7 @@ fn main() {
             if key_code != None && key_code.unwrap() == KeyCode::Char('c') && key_modifiers.unwrap().contains(KeyModifiers::CONTROL) {
                 break;
             } else {
+                (window_line_x, window_line_y) = helper::calc_window_lines(&file_data, window_line_x, window_line_y, cursor_x, cursor_y);
                 if !resize {
                     send_command(
                         key_code.unwrap(),
@@ -706,6 +731,8 @@ fn main() {
                         &mut macro_command,
                         &mut macro_recording,
                         &mut diff_history,
+                        &mut window_line_x,
+                        &mut window_line_y,
                         &mut pos,
                     );
                 }
