@@ -84,14 +84,39 @@ fn send_command(
             }
             *recording = true;
         } else if code == KeyCode::Char('q') {
+            if !*macro_recording {
+                macro_command.clear();
+            }
             *macro_recording = !*macro_recording;
+        } else if *prev_keys == "c" && code == KeyCode::Char('i') {
+            helper::log_command(code, modifiers, last_command, *recording);
+            *prev_keys = "ci".to_string();
         } else if *prev_keys == "d" && code == KeyCode::Char('i') {
             helper::log_command(code, modifiers, last_command, *recording);
             *prev_keys = "di".to_string();
+        } else if *prev_keys == "ci" && code == KeyCode::Char('w') {
+            helper::log_command(code, modifiers, last_command, *recording);
+            *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
+            match helper::get_in_word(&file_data[*cursor_y], *cursor_x) {
+                Some((begin, end)) => {
+                    let new_end = helper::prevent_cursor_end(&file_data, end, *cursor_y);
+                    (*cursor_x, *cursor_y) = helper::delete_in_visual(file_data, begin, *cursor_y, new_end, *cursor_y, 'v');
+                }
+                None => ()
+            };
+            *mode = 'i';
+            *prev_keys = "".to_string();
         } else if *prev_keys == "di" && code == KeyCode::Char('w') {
             helper::log_command(code, modifiers, last_command, *recording);
-            // TODO diw
-            *cursor_x = helper::get_index_next_word(&file_data, *cursor_x, *cursor_y);
+            *cursor_x = helper::reset_cursor_end(&file_data, *cursor_x, *cursor_y);
+            match helper::get_in_word(&file_data[*cursor_y], *cursor_x) {
+                Some((begin, end)) => {
+                    let new_end = helper::prevent_cursor_end(&file_data, end, *cursor_y);
+                    (*cursor_x, *cursor_y) = helper::delete_in_visual(file_data, begin, *cursor_y, new_end, *cursor_y, 'v');
+                }
+                None => ()
+            };
+            helper::save_to_file(&file_data, file_name);
             *prev_keys = "".to_string();
         } else if code == KeyCode::Char('{') {
             *cursor_y = helper::get_prev_empty_line(&file_data, *cursor_y);
@@ -366,6 +391,13 @@ fn send_command(
     } else if *mode == 'v' {
         if code == KeyCode::Esc {
             *mode = 'n';
+        } else if code == KeyCode::Char('$') {
+            *cursor_x = helper::set_cursor_end(&file_data, *cursor_y);
+            *cursor_x = helper::left(*cursor_x);
+        } else if code == KeyCode::Char('^') {
+            *cursor_x = helper::count_leading_spaces(&file_data[*cursor_y]);
+        } else if code == KeyCode::Char('0') {
+            *cursor_x = 0;
         } else if code == KeyCode::Char('*') {
             *mode = 'n';
             *searching = true;

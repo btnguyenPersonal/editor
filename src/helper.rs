@@ -442,6 +442,37 @@ pub fn save_to_file(data: &[String], file_path: &str) {
     }
 }
 
+pub fn get_in_word(string: &str, cursor_x: usize) -> Option<(usize, usize)> {
+    let string_chars: Vec<char> = string.chars().collect();
+    let mut word_start: Option<usize> = None;
+    let mut word_end: Option<usize> = None;
+    let mut index = cursor_x;
+    loop {
+        if string_chars[index].is_alphanumeric() || string_chars[index] == '_' {
+            word_start = Some(index);
+            if index == 0 {
+                break;
+            }
+            index -= 1;
+        } else {
+            break;
+        }
+    }
+    for (index, &character) in string_chars.iter().enumerate().skip(cursor_x) {
+        let is_in_word = character.is_alphanumeric() || character == '_';
+        if is_in_word && word_start.is_none() {
+            word_start = Some(index);
+        } else if !is_in_word && word_start.is_some() {
+            word_end = if index == 0 { Some(0) } else { Some(index - 1) };
+            break;
+        }
+    }
+    if word_start.is_some() && word_end.is_none() {
+        word_end = if string_chars.len() == 0 { Some(0) } else { Some(string_chars.len() - 1) };
+    }
+    word_start.zip(word_end)
+}
+
 pub fn right_insert(file_data: &[String], cursor_x: usize, cursor_y: usize) -> usize {
     if cursor_x + 1 <= file_data[cursor_y].len() {
         cursor_x + 1
