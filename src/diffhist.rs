@@ -48,7 +48,7 @@ impl DiffHistory {
     }
 
     pub fn undo(&mut self) -> Option<String> {
-        if self.current > 0 {
+        if self.current > 1 {
             self.current -= 1;
         }
         self.get_state(self.current)

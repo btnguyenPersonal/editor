@@ -684,7 +684,13 @@ pub fn calc_window_lines(file_data: &[String], window_line_x: usize, window_line
     let term_width = terminal_size.0 as usize;
     let mut x = window_line_x;
     let mut y = window_line_y;
-    let cursor_display_x = if cursor_x > file_data[cursor_y].len() { file_data[cursor_y].len() } else { cursor_x };
+    let cursor_display_x = if file_data.len() == 0 {
+        0
+    } else if cursor_x >= file_data[cursor_y].len() {
+        file_data[cursor_y].len()
+    } else {
+        cursor_x
+    };
     if window_line_x + (term_width - 6) <= cursor_display_x {
         x = cursor_display_x - (term_width - 6);
     }

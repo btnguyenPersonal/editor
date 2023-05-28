@@ -93,19 +93,21 @@ fn send_command(
             }
             *macro_recording = !*macro_recording;
         } else if code == KeyCode::Char('u') {
-            if let Some(prev_state) = diff_history.undo() {
-                *file_data = prev_state.lines().map(String::from).collect();
+            match diff_history.undo() {
+                Some(prev_state) => *file_data = prev_state.lines().map(String::from).collect(),
+                None => ()
             }
             *cursor_x = 0;
             *cursor_y = 0;
-            helper::save_to_file_no_snapshot(file_data, file_name);
+            // helper::save_to_file_no_snapshot(file_data, file_name);
         } else if code == KeyCode::Char('r') && modifiers.contains(KeyModifiers::CONTROL) {
-            if let Some(next_state) = diff_history.redo() {
-                *file_data = next_state.lines().map(String::from).collect();
+            match diff_history.redo() {
+                Some(next_state) => *file_data = next_state.lines().map(String::from).collect(),
+                None => ()
             }
             *cursor_x = 0;
             *cursor_y = 0;
-            helper::save_to_file_no_snapshot(file_data, file_name);
+            // helper::save_to_file_no_snapshot(file_data, file_name);
         } else if *prev_keys == "y" && code == KeyCode::Char('i') {
             *prev_keys = "yi".to_string();
         } else if *prev_keys == "yi" && code == KeyCode::Char('w') {
@@ -639,7 +641,10 @@ fn main() {
     let mut macro_command: Vec<(KeyCode, KeyModifiers)> = Vec::new();
     let mut macro_recording = false;
     let mut diff_history = diffhist::DiffHistory::new();
-    // diff_history.create_snapshot(&mut file_data);
+    if file_data.len() == 0 {
+        file_data.insert(0, "".to_string());
+    }
+    diff_history.create_snapshot(&mut file_data);
     prev_view = helper::render_file_data(
         prev_view.clone(),
         file_name,
