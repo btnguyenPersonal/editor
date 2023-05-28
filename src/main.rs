@@ -37,6 +37,29 @@ fn send_command(
                 }
             }
             *prev_keys = "".to_string();
+        } else if code == KeyCode::Char(',') {
+            *recording = false;
+            for (macro_code, macro_modifiers) in macro_command.iter() {
+                send_command(
+                    *macro_code,
+                    *macro_modifiers,
+                    file_data,
+                    file_name,
+                    cursor_x,
+                    cursor_y,
+                    visual_x,
+                    visual_y,
+                    mode,
+                    prev_keys,
+                    last_command,
+                    recording,
+                    search_string,
+                    searching,
+                    &mut Vec::new(),
+                    macro_recording,
+                );
+            }
+            *recording = true;
         } else if code == KeyCode::Char('.') {
             *recording = false;
             for (last_code, last_modifiers) in last_command.iter() {
@@ -577,6 +600,9 @@ fn main() {
                 Event::Key(KeyEvent { code, modifiers, .. }) => {
                     key_code = Some(code);
                     key_modifiers = Some(modifiers);
+                    if macro_recording && !(mode == 'n' && code == KeyCode::Char('q')) {
+                        macro_command.push((code, modifiers));
+                    }
                 },
                 Event::Resize(_, _) => {
                     resize = true;
